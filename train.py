@@ -26,7 +26,7 @@ TRAINING_EPOCH = 10
 L1_LAMBDA = 100
 
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    #transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std']),
 ])
@@ -68,6 +68,8 @@ D_losses = []
 G_losses = []
 for epoch in range(TRAINING_EPOCH):  
     for img, mask in tqdm(trainloader):
+        print(img.shape)
+        break
         img = img.to(device)
         mask = mask.to(device)
         #Training D
