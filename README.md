@@ -27,7 +27,7 @@ optional arguments:
 
 ## 서빙할때 테스트용 모델 사용법
 ```shell
-& python3 main.py -m test --checkpoint checkpoint/G_4600.pt --data_dir 입력사진 
+$ python3 main.py -m test --checkpoint checkpoint/G_4600.pt --data_dir 입력사진 
 ```
 * 위 처럼 실행하면, 입력사진_result.jpg로 생성된 사진 나옴. 입력사진에 img.jpg라고 넣었으면 img_result.jpg가 생성되는 식
 
