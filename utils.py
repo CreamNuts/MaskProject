@@ -12,10 +12,10 @@ IMG_PARAMETERS = {
     'std': [0.3324, 0.3320, 0.3319]
     }
 
-MASK_PARAMETERS = {
-    'mean':[0.4712, 0.4701, 0.4689],
-    'std': [0.3324, 0.3320, 0.3319]
-    }
+IMG_UNNORMALIZE = {
+    'mean' : [-mean/std for mean, std in zip(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std'])],
+    'std' : [1.0/std for std in IMG_PARAMETERS['std']]
+}
 
 def get_parameters(dataset, batchsize):
     '''
@@ -54,17 +54,20 @@ def get_parameters(dataset, batchsize):
     print(f'MASK_PARAMETERS : {MASK_PARAMETERS}')
     return IMG_PARAMETERS, MASK_PARAMETERS
 
-def save_image(input_img, mask_img, generate_img, num_iter, save_dir):
+def save_image(input_img, mask_img, generate_img, num_iter, save_dir, unnormalize):
+    transform = transforms.Compose([
+        transforms.Normalize(unnormalize['mean'], unnormalize['std']),
+        transforms.ToPILImage()
+    ])
     img = make_grid(input_img, nrow = 1)
     mask = make_grid(mask_img, nrow = 1)
     generate = make_grid(generate_img, nrow = 1)
-    result = torch.cat([img, mask, generate], dim=2)
-    result = transforms.ToPILImage()(result)
-    result.save(os.path.join(save_dir, f'{num_iter}_iter.jpg'))
+    result = torch.cat([mask, img, generate], dim=2)
+    result = transform(result)
+    result.save(os.path.join(save_dir, f'{num_iter}.jpg'))
 
 def save_model(generator, discriminator, num_iter, save_dir):
     torch.save({
         'generator' : generator.state_dict(),
         'discriminator' : discriminator.state_dict(),
-    }, os.path.join(save_dir, f'{num_iter}_iter.pt'))
-
+    }, os.path.join(save_dir, f'{num_iter}.pt'))

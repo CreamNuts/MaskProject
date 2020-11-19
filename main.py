@@ -8,7 +8,7 @@ from torchvision import transforms
 from tqdm import tqdm
 from model import Generator, Discriminator
 from dataset import Mask, create_loader
-from utils import save_image, save_model
+from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', '-m', default='train', choices=['train', 'test'], help='Train : Use Hold-Out, Test : Make Image')
@@ -18,6 +18,7 @@ parser.add_argument('--model_dir', default='./checkpoint', help='Directory to sa
 parser.add_argument('--result_dir', default='./result', help='Directory to save your result img')
 parser.add_argument('--gpu', default='0')
 parser.add_argument('--l1_lambda', default=100)
+parser.add_argument('--ratio', type=float, default=0.8, help='Hold-out ratio, default is 0.8')
 parser.add_argument('--batchsize', type=int, default=64)
 parser.add_argument('--lr', type=float, default=0.0002)
 parser.add_argument('--epoch', type=int, default=10)
@@ -34,6 +35,7 @@ if __name__ == '__main__':
     transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
+        transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std'])
         ])
     
     G = Generator().to(device)
@@ -43,7 +45,7 @@ if __name__ == '__main__':
         D = Discriminator().to(device)
         D.weight_init(mean=0.0, std=0.02)
 
-        trainloader, valloader = create_loader(dir=args.data_dir, transform=transform, batchsize=args.batchsize)
+        trainloader, valloader = create_loader(dir=args.data_dir, transform=transform, batchsize=args.batchsize, ratio=args.ratio)
         BCE_loss = nn.BCELoss()
         L1_loss = nn.L1Loss()
 
@@ -87,15 +89,22 @@ if __name__ == '__main__':
                     G.eval()
                     with torch.no_grad():
                         img, mask = iter(valloader).next()
-                        generate = G(img.to(device)).cpu()
-                    save_image(img, mask, generate, num_iter, args.result_dir)
+                        generate = G(mask.to(device)).cpu()
+                    save_image(img, mask, generate, num_iter, args.result_dir, IMG_UNNORMALIZE)
                     save_model(G, D, num_iter, args.model_dir)
                 num_iter += 1
     else:
+        user_img = Image.open(args.data_dir)
+        origin_size = user_img.size
+        test_transform = transforms.Compose([
+            transforms.Normalize(IMG_UNNORMALIZE['mean'], IMG_UNNORMALIZE['std']),
+            transforms.ToPILImage(),
+            transforms.Resize(origin_size[::-1])
+        ])
         G.load_state_dict(torch.load(args.checkpoint))#['generator'])
-        img = transform(Image.open(args.data_dir)).unsqueeze(dim=0).to(device)
-        result = G(img).squeeze(dim=0).cpu()
-        transforms.ToPILImage()(result).save(args.data_dir[:-4]+'_result.jpg')
+        user_img = transform(user_img).unsqueeze(dim=0).to(device)
+        result = G(user_img).squeeze(dim=0).cpu()
+        test_transform(result).save(args.data_dir[:-4]+'_result.jpg')
 
         
 
