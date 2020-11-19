@@ -1,110 +1,102 @@
-import os, argparse, model, torch
-import torch.nn as nn
+import os, argparse, torch
 import torch.optim as optim
+import torch.nn as nn
+from PIL import Image
 from torchsummary import summary
 from torch.utils.data import random_split, DataLoader
 from torchvision import transforms
-from dataset import Mask
-from utils import *
 from tqdm import tqdm
+from model import Generator, Discriminator
+from dataset import Mask, create_loader
+from utils import save_image, save_model
 
-IMG_PARAMETERS = {
-    'mean':[0.4712, 0.4701, 0.4689],
-    'std': [0.3324, 0.3320, 0.3319]
-    }
+parser = argparse.ArgumentParser()
+parser.add_argument('--mode', '-m', default='train', choices=['train', 'test'], help='Train : Use Hold-Out, Test : Make Image')
+parser.add_argument('--checkpoint', '-c', default=None, help='Directory to load your model')
+parser.add_argument('--data_dir', default='../data/celeba', help='Dataset Directory')
+parser.add_argument('--model_dir', default='./checkpoint', help='Directory to save your model')
+parser.add_argument('--result_dir', default='./result', help='Directory to save your result img')
+parser.add_argument('--gpu', default='0')
+parser.add_argument('--l1_lambda', default=100)
+parser.add_argument('--batchsize', type=int, default=64)
+parser.add_argument('--lr', type=float, default=0.0002)
+parser.add_argument('--epoch', type=int, default=10)
+args = parser.parse_args()
 
-MASK_PARAMETERS = {
-    'mean':[0.4712, 0.4701, 0.4689],
-    'std': [0.3324, 0.3320, 0.3319]
-    }
-
-BATCHSIZE = 64
-LEARNING_RATE = 0.0002
 BETA1 = 0.5
 BETA2 = 0.999
-TRAINING_EPOCH = 10
-L1_LAMBDA = 100
 
-transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.ToTensor(),
-    #transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std']),
-])
-#CUDA_LAUNCH_BLOCKING=1
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-#device = torch.device('cpu')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('use: ',device)
 
-dir = '../data/celeba'
-dataset = Mask(dir, img_transform=transform, mask_transform=transform)
-num_train = int(len(dataset) * 0.8)
-num_valid = len(dataset) - num_train
-trainset, valset = random_split(dataset, [num_train, num_valid])
+if __name__ == '__main__':
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        ])
+    
+    G = Generator().to(device)
+    G.weight_init(mean=0.0, std=0.02)
+    
+    if args.mode == 'train':
+        D = Discriminator().to(device)
+        D.weight_init(mean=0.0, std=0.02)
 
-trainloader = DataLoader(trainset, shuffle=True, batch_size=BATCHSIZE)
-valloader = DataLoader(valset, batch_size=4)
+        trainloader, valloader = create_loader(dir=args.data_dir, transform=transform, batchsize=args.batchsize)
+        BCE_loss = nn.BCELoss()
+        L1_loss = nn.L1Loss()
 
-G = model.Generator().to(device)
-D = model.Discriminator().to(device)
-G.weight_init(mean=0.0, std=0.02)
-D.weight_init(mean=0.0, std=0.02)
+        G_optimizer = optim.Adam(G.parameters(), lr=args.lr, betas=(BETA1, BETA2))
+        D_optimizer = optim.Adam(D.parameters(), lr=args.lr, betas=(BETA1, BETA2))
+ 
+        train_hist = {}
+        train_hist['D_losses'] = []
+        train_hist['G_losses'] = []
+        D_losses = []
+        G_losses = []   
+        num_iter = 0
+        for epoch in range(args.epoch):
+            print(f'Epoch {epoch+1} Start')  
+            G.train()
+            D.train()
+            for img, mask in tqdm(trainloader):
+                img = img.to(device)
+                mask = mask.to(device)
+                #Training D
+                D.zero_grad()
+                D_real = D(img).squeeze()
+                D_real_loss = BCE_loss(D_real, torch.ones(D_real.size()).to(device))
+                G_result = G(mask)
+                D_fake = D(G_result).squeeze()
+                D_fake_loss = BCE_loss(D_fake, torch.zeros(D_fake.size()).to(device))
+                D_train_loss = (D_real_loss + D_fake_loss)/2
+                D_train_loss.backward()
+                D_optimizer.step()
+                D_losses.append(D_train_loss)
 
-G.train()
-D.train()
+                #Training G
+                G.zero_grad()
+                G_result = G(mask)
+                D_result = D(G_result).squeeze()
+                G_train_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device)) + args.l1_lambda*L1_loss(G_result, img)
+                G_train_loss.backward()
+                G_optimizer.step()
+                G_losses.append(G_train_loss)
+                if num_iter % 200 == 0:
+                    G.eval()
+                    with torch.no_grad():
+                        img, mask = iter(valloader).next()
+                        generate = G(img.to(device)).cpu()
+                    save_image(img, mask, generate, num_iter, args.result_dir)
+                    save_model(G, D, num_iter, args.model_dir)
+                num_iter += 1
+    else:
+        G.load_state_dict(torch.load(args.checkpoint))#['generator'])
+        img = transform(Image.open(args.data_dir)).unsqueeze(dim=0).to(device)
+        result = G(img).squeeze(dim=0).cpu()
+        transforms.ToPILImage()(result).save(args.data_dir[:-4]+'_result.jpg')
 
-BCE_loss = nn.BCELoss()
-L1_loss = nn.L1Loss()
-
-G_optimizer = optim.Adam(G.parameters(), lr=LEARNING_RATE, betas=(BETA1, BETA2))
-D_optimizer = optim.Adam(D.parameters(), lr=LEARNING_RATE, betas=(BETA1, BETA2))
-
-train_hist = {}
-train_hist['D_losses'] = []
-train_hist['G_losses'] = []
-
-num_iter = 0
-D_losses = []
-G_losses = []
-for epoch in range(TRAINING_EPOCH):
-    print(f'Epoch {epoch+1} Start')  
-    G.train()
-    D.train()
-    for img, mask in tqdm(trainloader):
-        img = img.to(device)
-        mask = mask.to(device)
-        #Training D
-        D.zero_grad()
-        D_real = D(img).squeeze()
-        D_real_loss = BCE_loss(D_real, torch.ones(D_real.size()).to(device))
-
-        G_result = G(mask)
-        D_fake = D(G_result).squeeze()
-        D_fake_loss = BCE_loss(D_fake, torch.zeros(D_fake.size()).to(device))
-
-        D_train_loss = (D_real_loss + D_fake_loss)/2
-        D_train_loss.backward()
-        D_optimizer.step()
-
-        D_losses.append(D_train_loss)
-
-        #Training G
-        G.zero_grad()
-
-        G_result = G(mask)
-        D_result = D(G_result).squeeze()
-
-        G_train_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device)) + L1_LAMBDA*L1_loss(G_result, img)
-        G_train_loss.backward()
-        G_optimizer.step()
-
-        G_losses.append(G_train_loss)
-        if num_iter % 100 == 0:
-            G.eval()
-            with torch.no_grad():
-                img, mask = iter(valloader).next()
-                generate = G(img.to(device))
-                make_result(img, mask, generate.cpu(), num_iter)
-        num_iter += 1
+        
 
     

@@ -1,10 +1,21 @@
-import multiprocessing
-from torch.utils.data import DataLoader
+import os
+import torch
+from torchvision import transforms
 from torchvision.utils import make_grid
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from dataset import *
 
-NUM_WORKERS = 4 #multiprocessing.cpu_count()
+NUM_WORKERS = 4
+
+IMG_PARAMETERS = {
+    'mean':[0.4712, 0.4701, 0.4689],
+    'std': [0.3324, 0.3320, 0.3319]
+    }
+
+MASK_PARAMETERS = {
+    'mean':[0.4712, 0.4701, 0.4689],
+    'std': [0.3324, 0.3320, 0.3319]
+    }
 
 def get_parameters(dataset, batchsize):
     '''
@@ -43,12 +54,17 @@ def get_parameters(dataset, batchsize):
     print(f'MASK_PARAMETERS : {MASK_PARAMETERS}')
     return IMG_PARAMETERS, MASK_PARAMETERS
 
-def make_result(input_img, mask_img, generate_img, num_iter, save_dir='./result'):
+def save_image(input_img, mask_img, generate_img, num_iter, save_dir):
     img = make_grid(input_img, nrow = 1)
     mask = make_grid(mask_img, nrow = 1)
     generate = make_grid(generate_img, nrow = 1)
     result = torch.cat([img, mask, generate], dim=2)
     result = transforms.ToPILImage()(result)
-    result.save(save_dir+f'/{num_iter}_iter.jpg')
+    result.save(os.path.join(save_dir, f'{num_iter}_iter.jpg'))
 
-    
+def save_model(generator, discriminator, num_iter, save_dir):
+    torch.save({
+        'generator' : generator.state_dict(),
+        'discriminator' : discriminator.state_dict(),
+    }, os.path.join(save_dir, f'{num_iter}_iter.pt'))
+
