@@ -1,6 +1,9 @@
 import os
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import transforms
+from torchvision.models import vgg19_bn
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -71,3 +74,30 @@ def save_model(generator, discriminator, num_iter, save_dir):
         'generator' : generator.state_dict(),
         'discriminator' : discriminator.state_dict(),
     }, os.path.join(save_dir, f'{num_iter}.pt'))
+
+class PerceptualLoss(nn.Module):
+    def __init__(self):
+        super(PerceptualLoss, self).__init__()
+        vgg = vgg19_bn(pretrained=True)
+        blocks = []
+        blocks.append(vgg.features[:4].eval())
+        blocks.append(vgg.features[4:9].eval())
+        blocks.append(vgg.features[9:16].eval())
+        blocks.append(vgg.features[16:23].eval())
+        for block in blocks:
+            for layer in block:
+                layer.requires_grad = False
+        self.blocks = nn.ModuleList(blocks)
+        
+    def forward(self, input, target):
+        if input.get_device() != next(self.blocks[0].parameters()).get_device():
+            self.blocks = self.blocks.to(input.get_device())
+        input = F.interpolate(input, size=224)
+        target = F.interpolate(target, size=224)
+        loss = 0
+        for block in self.blocks:
+            input = block(input)
+            target = block(target)
+            loss += F.l1_loss(input, target)
+        return loss
+        

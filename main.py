@@ -1,6 +1,7 @@
 import os, argparse, torch
 import torch.optim as optim
 import torch.nn as nn
+import pytorch_ssim
 from PIL import Image
 from torchsummary import summary
 from torch.utils.data import random_split, DataLoader
@@ -8,7 +9,7 @@ from torchvision import transforms
 from tqdm import tqdm
 from model import Generator, Discriminator
 from dataset import Mask, create_loader
-from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE
+from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE, PerceptualLoss
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', '-m', default='train', choices=['train', 'test'], help='Train : Use Hold-Out, Test : Make Image')
@@ -48,6 +49,8 @@ if __name__ == '__main__':
         trainloader, valloader = create_loader(dir=args.data_dir, transform=transform, batchsize=args.batchsize, ratio=args.ratio)
         BCE_loss = nn.BCELoss()
         L1_loss = nn.L1Loss()
+        Percept_loss = PerceptualLoss()
+        SSIM_loss = pytorch_ssim.SSIM(window_size=11)
 
         G_optimizer = optim.Adam(G.parameters(), lr=args.lr, betas=(BETA1, BETA2))
         D_optimizer = optim.Adam(D.parameters(), lr=args.lr, betas=(BETA1, BETA2))
@@ -81,8 +84,14 @@ if __name__ == '__main__':
                 G.zero_grad()
                 G_result = G(mask)
                 D_result = D(G_result).squeeze()
-                G_train_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device)) + args.l1_lambda*L1_loss(G_result, img)
+                
+                bce_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device))
+                l1_loss = L1_loss(G_result, img)
+                ssim_loss = 1 - SSIM_loss(G_result, img)
+                percept_loss = Percept_loss(G_result, img)
+                G_train_loss = bce_loss + args.l1_lambda*(l1_loss + ssim_loss + percept_loss)
                 G_train_loss.backward()
+                
                 G_optimizer.step()
                 G_losses.append(G_train_loss)
                 if num_iter % 200 == 0:
