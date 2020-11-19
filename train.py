@@ -18,7 +18,7 @@ MASK_PARAMETERS = {
     'std': [0.3324, 0.3320, 0.3319]
     }
 
-BATCHSIZE = 128
+BATCHSIZE = 64
 LEARNING_RATE = 0.0002
 BETA1 = 0.5
 BETA2 = 0.999
@@ -26,12 +26,13 @@ TRAINING_EPOCH = 10
 L1_LAMBDA = 100
 
 transform = transforms.Compose([
-    #transforms.Resize((224, 224)),
+    transforms.Resize((256, 256)),
     transforms.ToTensor(),
-    transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std']),
+    #transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std']),
 ])
-
+#CUDA_LAUNCH_BLOCKING=1
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#device = torch.device('cpu')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('use: ',device)
 
@@ -42,14 +43,13 @@ num_valid = len(dataset) - num_train
 trainset, valset = random_split(dataset, [num_train, num_valid])
 
 trainloader = DataLoader(trainset, shuffle=True, batch_size=BATCHSIZE)
-valloader = DataLoader(valset, batch_size=BATCHSIZE)
+valloader = DataLoader(valset, batch_size=4)
 
-G = model.generator()
-D = model.discriminator()
+G = model.Generator().to(device)
+D = model.Discriminator().to(device)
 G.weight_init(mean=0.0, std=0.02)
 D.weight_init(mean=0.0, std=0.02)
-G.cuda()
-D.cuda()
+
 G.train()
 D.train()
 
@@ -66,39 +66,45 @@ train_hist['G_losses'] = []
 num_iter = 0
 D_losses = []
 G_losses = []
-for epoch in range(TRAINING_EPOCH):  
+for epoch in range(TRAINING_EPOCH):
+    print(f'Epoch {epoch+1} Start')  
+    G.train()
+    D.train()
     for img, mask in tqdm(trainloader):
-        print(img.shape)
-        break
         img = img.to(device)
         mask = mask.to(device)
         #Training D
         D.zero_grad()
-        D_result = D(img, mask).squeeze()
-        D_real_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device))
+        D_real = D(img).squeeze()
+        D_real_loss = BCE_loss(D_real, torch.ones(D_real.size()).to(device))
 
-        G_result = G(img)
-        D_result = D(img, G_result).squeeze()
-        D_fake_loss = BCE_loss(D_result, torch.zeros(D_result.size()).to(device))
+        G_result = G(mask)
+        D_fake = D(G_result).squeeze()
+        D_fake_loss = BCE_loss(D_fake, torch.zeros(D_fake.size()).to(device))
 
         D_train_loss = (D_real_loss + D_fake_loss)/2
         D_train_loss.backward()
         D_optimizer.step()
 
-        D_losses.append(D_train_loss.data[0])
+        D_losses.append(D_train_loss)
 
         #Training G
         G.zero_grad()
 
-        G_result = G(img)
-        D_result = D(img, G_result).squeeze()
+        G_result = G(mask)
+        D_result = D(G_result).squeeze()
 
-        G_train_loss = BCE_loss(D_result, torch.ones(D_result.size().to(device))) + L1_LAMBDA*L1_loss(G_result, mask)
+        G_train_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device)) + L1_LAMBDA*L1_loss(G_result, img)
         G_train_loss.backward()
         G_optimizer.step()
 
-        G_losses.append(G_train_loss.data[0])
-
+        G_losses.append(G_train_loss)
+        if num_iter % 100 == 0:
+            G.eval()
+            with torch.no_grad():
+                img, mask = iter(valloader).next()
+                generate = G(img.to(device))
+                make_result(img, mask, generate.cpu(), num_iter)
         num_iter += 1
-    torch.save(G.state_dict(), 'G.pt')
-    torch.save(D.state_dict(), 'D.pt')
+
+    

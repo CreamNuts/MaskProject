@@ -7,8 +7,9 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
+
 class Mask(Dataset):
-    def __init__(self, dir, mode='train', img_transform=None, mask_transform=None):
+    def __init__(self, dir='../data/celeba', mode='train', img_transform=None, mask_transform=None):
         #print(f'creating data loader - {mode}')
         #assert mode in ['train', 'val', 'test']
         #self.mode = mode

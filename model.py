@@ -70,7 +70,7 @@ class Discriminator(nn.Module):
             DiscrimBlock(d, d*2),
             DiscrimBlock(d*2, d*4),
             DiscrimBlock(d*4, d*8),
-            nn.Conv2d(d*8, 1, kernel_size=4, padding=1)
+            nn.Conv2d(d*8, 1, kernel_size=4, padding=1),
         )
 
     # weight_init
@@ -81,7 +81,8 @@ class Discriminator(nn.Module):
     # forward method
     def forward(self, input):
         output = self.model(input)
-        return F.avg_pool2d(output, output.size()[2:]).view(output.size()[0], -1)
+        output = F.avg_pool2d(output, output.size()[2:]).view(output.size()[0], -1)
+        return torch.sigmoid(output)
 
 def normal_init(m, mean, std):
     if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):

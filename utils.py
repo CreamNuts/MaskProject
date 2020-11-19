@@ -1,6 +1,8 @@
 import multiprocessing
 from torch.utils.data import DataLoader
+from torchvision.utils import make_grid
 from tqdm import tqdm
+from dataset import *
 
 NUM_WORKERS = 4 #multiprocessing.cpu_count()
 
@@ -40,3 +42,13 @@ def get_parameters(dataset, batchsize):
     print(f'IMG_PARAMETERS : {IMG_PARAMETERS}')
     print(f'MASK_PARAMETERS : {MASK_PARAMETERS}')
     return IMG_PARAMETERS, MASK_PARAMETERS
+
+def make_result(input_img, mask_img, generate_img, num_iter, save_dir='./result'):
+    img = make_grid(input_img, nrow = 1)
+    mask = make_grid(mask_img, nrow = 1)
+    generate = make_grid(generate_img, nrow = 1)
+    result = torch.cat([img, mask, generate], dim=2)
+    result = transforms.ToPILImage()(result)
+    result.save(save_dir+f'/{num_iter}_iter.jpg')
+
+    
