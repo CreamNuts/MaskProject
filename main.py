@@ -12,17 +12,17 @@ from dataset import Mask, create_loader
 from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE, PerceptualLoss
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--mode', '-m', default='train', choices=['train', 'test'], help='Train : Use Hold-Out, Test : Make Image')
-parser.add_argument('--checkpoint', '-c', default=None, help='Directory to load your model')
-parser.add_argument('--data_dir', default='../data/celeba', help='Dataset Directory')
-parser.add_argument('--model_dir', default='./checkpoint', help='Directory to save your model')
-parser.add_argument('--result_dir', default='./result', help='Directory to save your result img')
-parser.add_argument('--gpu', default='0')
-parser.add_argument('--l1_lambda', default=100)
-parser.add_argument('--ratio', type=float, default=0.8, help='Hold-out ratio, default is 0.8')
-parser.add_argument('--batchsize', type=int, default=64)
-parser.add_argument('--lr', type=float, default=0.0002)
-parser.add_argument('--epoch', type=int, default=10)
+parser.add_argument('-m', metavar='MODE', dest='mode', default='train', choices=['train', 'test'], required=True, help='Train : Use hold-out, Test : Make image')
+parser.add_argument('--checkpoint', metavar='DIR', default=None, help='Directory of trained model')
+parser.add_argument('--data_dir', metavar='DIR', default='../data/celeba', help='Dataset or Test image directory. In inference, output image will be saved here')
+parser.add_argument('--model_dir', metavar='DIR', default='./checkpoint', help='Directory to save your model when training')
+parser.add_argument('--result_dir', metavar='DIR', default='./result', help='Directory to save your Input/True/Generate image when training')
+parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--l1_lambda', metavar='Float', type=float, default=100, help='Default is 100')
+parser.add_argument('--ratio', metavar='Float', type=float, default=0.8, help='Hold-out ratio, default is 0.8')
+parser.add_argument('--batchsize', metavar='Int', type=int, default=64, help='Default is 64')
+parser.add_argument('--lr', metavar='Float', type=float, default=0.0002, help='Default is 0.0002')
+parser.add_argument('--epoch', metavar='Int', type=int, default=10, help='Default is 10')
 args = parser.parse_args()
 
 BETA1 = 0.5
@@ -91,7 +91,7 @@ if __name__ == '__main__':
                 percept_loss = Percept_loss(G_result, img)
                 G_train_loss = bce_loss + args.l1_lambda*(l1_loss + ssim_loss + percept_loss)
                 G_train_loss.backward()
-                
+
                 G_optimizer.step()
                 G_losses.append(G_train_loss)
                 if num_iter % 200 == 0:
