@@ -10,12 +10,17 @@ from tqdm import tqdm
 
 NUM_WORKERS = 4
 
-IMG_PARAMETERS = {
-    'mean':[0.4712, 0.4701, 0.4689],
+IMG_UNNORMALIZE = {
+    'mean': [-1, -1, -1],
+    'std' : [2, 2, 2]
+}
+
+MASK_PARAMETERS = {
+    'mean': [0.4712, 0.4701, 0.4689],
     'std': [0.3324, 0.3320, 0.3319]
     }
 
-IMG_UNNORMALIZE = {
+MASK_UNNORMALIZE = {
     'mean' : [-mean/std for mean, std in zip(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std'])],
     'std' : [1.0/std for std in IMG_PARAMETERS['std']]
 }
@@ -75,29 +80,3 @@ def save_model(generator, discriminator, num_iter, save_dir):
         'discriminator' : discriminator.state_dict(),
     }, os.path.join(save_dir, f'{num_iter}.pt'))
 
-class PerceptualLoss(nn.Module):
-    def __init__(self):
-        super(PerceptualLoss, self).__init__()
-        vgg = vgg19_bn(pretrained=True)
-        blocks = []
-        blocks.append(vgg.features[:4].eval())
-        blocks.append(vgg.features[4:9].eval())
-        blocks.append(vgg.features[9:16].eval())
-        blocks.append(vgg.features[16:23].eval())
-        for block in blocks:
-            for layer in block:
-                layer.requires_grad = False
-        self.blocks = nn.ModuleList(blocks)
-        
-    def forward(self, input, target):
-        if input.get_device() != next(self.blocks[0].parameters()).get_device():
-            self.blocks = self.blocks.to(input.get_device())
-        input = F.interpolate(input, size=224)
-        target = F.interpolate(target, size=224)
-        loss = 0
-        for block in self.blocks:
-            input = block(input)
-            target = block(target)
-            loss += F.l1_loss(input, target)
-        return loss
-        

@@ -7,15 +7,17 @@ from torchsummary import summary
 from torch.utils.data import random_split, DataLoader
 from torchvision import transforms
 from tqdm import tqdm
-from model import Generator, Discriminator
+from model import Mapmodule, Generator, Discriminator
+from module import PerceptualLoss
 from dataset import Mask, create_loader
-from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE, PerceptualLoss
+from utils import save_image, save_model, MASK_PARAMETERS, IMG_UNNORMALIZE 
 import sys
 sys.stdout.flush()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', metavar='MODE', dest='mode', default='train', choices=['train', 'test'], required=True, help='Train : Use hold-out, Test : Make image')
-parser.add_argument('--checkpoint', metavar='DIR', default=None, help='Directory of trained model')
+parser.add_argument('--checkpoint', metavar='DIR', default=None, 
+help='Directory of trained model')
 parser.add_argument('--data_dir', metavar='DIR', default='../data/celeba', help='Dataset or Test image directory. In inference, output image will be saved here')
 parser.add_argument('--model_dir', metavar='DIR', default='./checkpoint', help='Directory to save your model when training')
 parser.add_argument('--result_dir', metavar='DIR', default='./result', help='Directory to save your Input/True/Generate image when training')
@@ -27,6 +29,8 @@ parser.add_argument('--lr', metavar='Float', type=float, default=0.0002, help='D
 parser.add_argument('--epoch', metavar='Int', type=int, default=10, help='Default is 10')
 args = parser.parse_args()
 
+if args.mode == 'test':
+    assert os.path.isfile(args.data_dir), 'In testing, data_dir is a file, not a directory'
 BETA1 = 0.5
 BETA2 = 0.999
 
@@ -35,20 +39,28 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('use: ',device)
 
 if __name__ == '__main__':
-    transform = transforms.Compose([
+    mask_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
-        transforms.Normalize(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std'])
+        transforms.Normalize(MASK_PARAMETERS['mean'], MASK_PARAMETERS['std'])
         ])
+    img_transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
     
-    G = Generator().to(device)
+    G = Generator(in_channels=3).to(device)
     G.weight_init(mean=0.0, std=0.02)
     
     if args.mode == 'train':
         D = Discriminator().to(device)
         D.weight_init(mean=0.0, std=0.02)
 
-        trainloader, valloader = create_loader(dir=args.data_dir, transform=transform, batchsize=args.batchsize, ratio=args.ratio)
+        trainloader, valloader = create_loader(
+            dir=args.data_dir, 
+            mask_transform=mask_transform, img_transform=img_transform, 
+            batchsize=args.batchsize, ratio=args.ratio)
         BCE_loss = nn.BCELoss()
         L1_loss = nn.L1Loss()
         Percept_loss = PerceptualLoss()
@@ -67,7 +79,7 @@ if __name__ == '__main__':
             print(f'Epoch {epoch+1} Start')  
             G.train()
             D.train()
-            for img, mask in tqdm(trainloader):
+            for mask, img in tqdm(trainloader):
                 img = img.to(device)
                 mask = mask.to(device)
                 #Training D
@@ -112,7 +124,7 @@ if __name__ == '__main__':
             transforms.ToPILImage(),
             transforms.Resize(origin_size[::-1])
         ])
-        G.load_state_dict(torch.load(args.checkpoint))#['generator'])
+        G.load_state_dict(torch.load(args.checkpoint)['generator'])
         user_img = transform(user_img).unsqueeze(dim=0).to(device)
         result = G(user_img).squeeze(dim=0).cpu()
         test_transform(result).save(args.data_dir[:-4]+'_result.jpg')

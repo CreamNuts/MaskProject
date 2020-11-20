@@ -1,7 +1,6 @@
 import os
 from tqdm import tqdm
-from mask2 import create_mask
-#from mask import create_mask 
+from mask import create_mask
 
 folder_path = "/mnt/serverhdd2/jiwook/data/celeba"
 

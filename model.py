@@ -1,9 +1,51 @@
 from module import *
 
+class Mapmodule(nn.Module):
+    # input shape : (1, 256, 256)
+    # initializers
+    def __init__(self, in_channels=3, out_channels=1, d=64):
+        super(Mapmodule, self).__init__()
+        self.encoder1 = nn.Sequential(
+            nn.Conv2d(in_channels, d, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(d, d, kernel_size=3, stride=1, padding=1),
+        )
+        self.encoder2 = EncoderBlock(d, d*2, stride1=2)
+        self.encoder3 = EncoderBlock(d*2, d*4, stride1=2)
+        self.encoder4 = EncoderBlock(d*4, d*8, stride1=2)
+        self.encoder5 = EncoderBlock(d*8, d*16, stride1=2)
+        self.decoder1 = DecoderBlock(d*16, d*8, stride1=2)
+        self.decoder2 = DecoderBlock(d*8*2, d*4, stride1=2)
+        self.decoder3 = DecoderBlock(d*4*2, d*2, stride1=2)
+        self.decoder4 = DecoderBlock(d*2*2, d, stride1=2)
+        self.decoder5 = nn.Sequential(
+            nn.ConvTranspose2d(d*2, d, kernel_size=3, stride=1, padding=1),
+            nn.ConvTranspose2d(d, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.Tanh()
+        )
+
+    # weight_init
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
+
+    # forward method
+    def forward(self, input):
+        e1 = self.encoder1(input)
+        e2 = self.encoder2(e1)
+        e3 = self.encoder3(e2)
+        e4 = self.encoder4(e3)
+        e5 = self.encoder5(e4)
+        output = self.decoder1(e5, e4)
+        output = self.decoder2(output, e3)
+        output = self.decoder3(output, e2)
+        output = self.decoder4(output, e1)
+        output = self.decoder5(output)
+        return output
+        
 class Generator(nn.Module):
     # input shape : (3, 256, 256)
     # initializers
-    def __init__(self, in_channels=3, d=64):
+    def __init__(self, in_channels=4, out_channels=3, d=64):
         super(Generator, self).__init__()
         self.encoder1 = nn.Sequential(
             nn.Conv2d(in_channels, d, kernel_size=3, stride=1, padding=1),
@@ -36,7 +78,7 @@ class Generator(nn.Module):
         self.decoder4 = DecoderBlock(d*2*2, d, stride1=2)
         self.decoder5 = nn.Sequential(
             nn.ConvTranspose2d(d*2, d, kernel_size=3, stride=1, padding=1),
-            nn.ConvTranspose2d(d, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ConvTranspose2d(d, out_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()
         )
 

@@ -1,148 +1,73 @@
-import os
-import sys
-import random
-import argparse
+import os, argparse
+import cv2, dlib, imutils
 import numpy as np
-from PIL import Image, ImageFile
+  
+def create_mask(img_dir, mask_choice=2, mask_color=3):
+    assert os.path.isfile(img_dir), "Wrong image directory"
+    img = cv2.imread(img_dir)
+    detector = dlib.get_frontal_face_detector()
+    faces = detector(img, 1) #1은 사진 확대 계수, 크면 얼굴 더 잘 찾을 수 있음
+    assert len(faces) == 1, "This image doesn't have face"
+    black = np.zeros(shape=[img.shape[0], img.shape[1], 1], dtype=np.uint8)
 
-def create_mask(image_path):
-    pic_path = image_path
-    mask_path = './default.png'
-    show = False
-    model = "hog"
-    FaceMasker(pic_path, mask_path, show, model).mask()
+    p = "shape_predictor_68_face_landmarks.dat"
+    predictor = dlib.shape_predictor(p)
+    
+    for face in faces:
+        landmarks = predictor(img, face) #위에 assert걸어서 사실 for문 필요 없긴 함
+    
+    points = []
+    for i in range(1, 16):
+        point = [landmarks.part(i).x, landmarks.part(i).y]
+        points.append(point)
+    # Coordinates for the additional 3 points for wide, high coverage mask - in sequence
+    mask_a = [((landmarks.part(42).x), (landmarks.part(15).y)),
+                ((landmarks.part(27).x), (landmarks.part(27).y)),
+                ((landmarks.part(39).x), (landmarks.part(1).y))]
 
-class FaceMasker:
-    KEY_FACIAL_FEATURES = ('nose_bridge', 'chin')
+    # Coordinates for the additional point for wide, medium coverage mask - in sequence
+    mask_c = [((landmarks.part(29).x), (landmarks.part(29).y))]
 
-    def __init__(self, face_path, mask_path, show=False, model='hog'):
-        self.face_path = face_path
-        self.mask_path = mask_path
-        self.show = show
-        self.model = model
-        self._face_img: ImageFile = None
-        self._mask_img: ImageFile = None
+    # Coordinates for the additional 5 points for wide, low coverage mask (lower nose points) - in sequence
+    mask_e = [((landmarks.part(35).x), (landmarks.part(35).y)),
+                ((landmarks.part(34).x), (landmarks.part(34).y)),
+                ((landmarks.part(33).x), (landmarks.part(33).y)),
+                ((landmarks.part(32).x), (landmarks.part(32).y)),
+                ((landmarks.part(31).x), (landmarks.part(31).y))]
 
-    def mask(self):
-        import face_recognition
+    fmask_a = np.array(points + mask_a, dtype=np.int32)
+    fmask_c = np.array(points + mask_c, dtype=np.int32)
+    fmask_e = np.array(points + mask_e, dtype=np.int32)
 
-        face_image_np = face_recognition.load_image_file(self.face_path)
-        face_locations = face_recognition.face_locations(face_image_np, model=self.model)
-        face_landmarks = face_recognition.face_landmarks(face_image_np, face_locations)
-        self._face_img = Image.fromarray(face_image_np)
-        self._mask_img = Image.open(self.mask_path)
+    mask_type = {1: fmask_a, 2: fmask_c, 3: fmask_e}
 
-        found_face = False
-        for face_landmark in face_landmarks:
-            # check whether facial features meet requirement
-            skip = False
-            for facial_feature in self.KEY_FACIAL_FEATURES:
-                if facial_feature not in face_landmark:
-                    skip = True
-                    break
-            if skip:
-                continue
+    color_blue = (239,207,137)
+    color_black = (0, 0, 0)
+    color_white = (255,255,255)
 
-            # mask face
-            found_face = True
-            self._mask_face(face_landmark)
+    color_type = {1: color_blue, 2: color_black, 3: color_white}
+    # change parameter [mask_type] and color_type for various combination
+    outline = cv2.polylines(img, [mask_type[mask_choice]], True, color_type[mask_color], thickness=2, lineType=cv2.LINE_8)
+    mask = cv2.fillPoly(outline, [mask_type[mask_choice]], color_type[mask_color], lineType=cv2.LINE_AA)
+    
+    outline = cv2.polylines(black, [mask_type[mask_choice]], True, 255, thickness=2, lineType=cv2.LINE_8)
+    only_mask = cv2.fillPoly(outline, [mask_type[mask_choice]], 255, lineType=cv2.LINE_AA)
 
-        if found_face:
-            if self.show:
-                self._face_img.show()
-
-            # save
-            self._save()
-        #else:
-            #print('Found no face.')
-
-    def _mask_face(self, face_landmark: dict):
-        nose_bridge = face_landmark['nose_bridge']
-        nose_point = nose_bridge[1]
-        nose_v = np.array(nose_point)
-
-        chin = face_landmark['chin']
-        chin_bottom_point = chin[8]
-        chin_bottom_v = np.array(chin_bottom_point)
-        chin_left_point = chin[1]
-        chin_right_point = chin[15]
-
-        # split mask and resize
-        width = self._mask_img.width
-        height = self._mask_img.height
-        width_ratio = 1.3
-        new_height = int(np.linalg.norm(nose_v - chin_bottom_v))
-
-        # left
-        mask_left_img = self._mask_img.crop((0, 0, width // 2, height))
-        mask_left_width = self.get_distance_from_point_to_line(chin_left_point, nose_point, chin_bottom_point)
-        mask_left_width = int(mask_left_width * width_ratio)
-        mask_left_img = mask_left_img.resize((mask_left_width, new_height))
-
-        # right
-        mask_right_img = self._mask_img.crop((width // 2, 0, width, height))
-        mask_right_width = self.get_distance_from_point_to_line(chin_right_point, nose_point, chin_bottom_point)
-        mask_right_width = int(mask_right_width * width_ratio)
-        mask_right_img = mask_right_img.resize((mask_right_width, new_height))
-
-        # merge mask
-        size = (mask_left_img.width + mask_right_img.width, new_height)
-        mask_img = Image.new('RGBA', size)
-        mask_img.paste(mask_left_img, (0, 0), mask_left_img)
-        mask_img.paste(mask_right_img, (mask_left_img.width, 0), mask_right_img)
-
-        # rotate mask
-        angle = np.arctan2(chin_bottom_point[1] - nose_point[1], chin_bottom_point[0] - nose_point[0])
-        rotated_mask_img = mask_img.rotate(angle, expand=True)
-
-        # calculate mask location
-        center_x = (nose_point[0] + chin_bottom_point[0]) // 2
-        center_y = (nose_point[1] + chin_bottom_point[1]) // 2
-
-        offset = mask_img.width // 2 - mask_left_img.width
-        radian = angle * np.pi / 180
-        box_x = center_x + int(offset * np.cos(radian)) - rotated_mask_img.width // 2
-        box_y = center_y + int(offset * np.sin(radian)) - rotated_mask_img.height // 2
-
-        # add mask
-        self._face_img.paste(mask_img, (box_x, box_y), mask_img)
-
-    def _save(self):
-        path_splits = os.path.splitext(self.face_path)
-        new_face_path = path_splits[0] + '_mask' + path_splits[1]
-        self._face_img.save(new_face_path)
-        #print(f'Save to {new_face_path}')
-
-    @staticmethod
-    def get_distance_from_point_to_line(point, line_point1, line_point2):
-        distance = np.abs((line_point2[1] - line_point1[1]) * point[0] +
-                          (line_point1[0] - line_point2[0]) * point[1] +
-                          (line_point2[0] - line_point1[0]) * line_point1[1] +
-                          (line_point1[1] - line_point2[1]) * line_point1[0]) / \
-                   np.sqrt((line_point2[1] - line_point1[1]) * (line_point2[1] - line_point1[1]) +
-                           (line_point1[0] - line_point2[0]) * (line_point1[0] - line_point2[0]))
-        return int(distance)
-
+    outputNameofMask = img_dir[:-4]+"_mask.jpg"
+    outputNameofOnlymask = img_dir[:-4]+"_maskgt.jpg"
+    cv2.imwrite(outputNameofMask, mask)    
+    cv2.imwrite(outputNameofOnlymask, only_mask)    
+    #print(f"Saving output image to {outputNameofMask} and {outputNameofOnlymask}")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Wear a face mask in the given picture.')
-    parser.add_argument('pic_path', help='Picture path.')
+    parser = argparse.ArgumentParser(description='Wear a face mask in the given picture')
+    parser.add_argument('img_dir', type=str, help='Image Directory')
     parser.add_argument('--show', action='store_true', help='Whether show picture with mask or not.')
-    parser.add_argument('--model', default='hog', choices=['hog', 'cnn'], help='Which face detection model to use.')
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--black', action='store_true', help='Wear black mask')
-    group.add_argument('--blue', action='store_true', help='Wear blue mask')
+    parser.add_argument('--mask_type', dest='mask', type=int, default=2, choices=[1, 2, 3], 
+    help='Mask Type, 1: High coverage, 2: Medium coverage, 3: Low converage'
+    )
+    parser.add_argument('--color_type', dest='color', type=int, default=3, choices=[1, 2, 3], 
+    help='Mask Color Type, 1: Blue, 2: Black, 3: White'
+    )
     args = parser.parse_args()
-
-    pic_path = args.pic_path
-    if not os.path.exists(args.pic_path):
-        print(f'Picture {pic_path} not exists.')
-        sys.exit(1)
-
-    if args.black:
-        mask_path = './default-mask.png'
-    elif args.blue:
-        mask_path = './blue-mask.png'
-    else:
-        mask_path = './default-mask.png'
-    FaceMasker(pic_path, mask_path, args.show, args.model).mask()
+    create_mask(args.img_dir, mask_choice=args.mask, mask_color=args.color)
