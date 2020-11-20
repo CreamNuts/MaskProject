@@ -10,6 +10,8 @@ from tqdm import tqdm
 from model import Generator, Discriminator
 from dataset import Mask, create_loader
 from utils import save_image, save_model, IMG_PARAMETERS, IMG_UNNORMALIZE, PerceptualLoss
+import sys
+sys.stdout.flush()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', metavar='MODE', dest='mode', default='train', choices=['train', 'test'], required=True, help='Train : Use hold-out, Test : Make image')

@@ -137,3 +137,6 @@ checkpoint/4800.pt
 checkpoint/5000.pt
 checkpoint/5200.pt
 checkpoint/5400.pt
+__pycache__/mask2.cpython-38.pyc
+checkpoint/5600.pt
+checkpoint/5800.pt

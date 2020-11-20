@@ -1,13 +1,14 @@
 import os
 from tqdm import tqdm
-from mask import create_mask 
+from mask2 import create_mask
+#from mask import create_mask 
 
 folder_path = "/mnt/serverhdd2/jiwook/data/celeba"
 
 num_of_files = 0
 num_of_masks = 0
 for path in tqdm(os.listdir(folder_path), desc="Number of Iter"):
-    subfolder = os.path.join(folder_path, path) 
+    subfolder = os.path.join(folder_path, path)     
     if os.path.isfile(subfolder):
         num_of_files += 1
         try:
