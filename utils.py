@@ -21,8 +21,8 @@ MASK_PARAMETERS = {
     }
 
 MASK_UNNORMALIZE = {
-    'mean' : [-mean/std for mean, std in zip(IMG_PARAMETERS['mean'], IMG_PARAMETERS['std'])],
-    'std' : [1.0/std for std in IMG_PARAMETERS['std']]
+    'mean' : [-mean/std for mean, std in zip(MASK_PARAMETERS['mean'], MASK_PARAMETERS['std'])],
+    'std' : [1.0/std for std in MASK_PARAMETERS['std']]
 }
 
 def get_parameters(dataset, batchsize):
