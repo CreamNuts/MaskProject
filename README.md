@@ -47,7 +47,4 @@ $ python3 main.py -m test --checkpoint checkpoint/4800.pt --data_dir 입력사�
 
 
 ## 내일 할 일 
-1. MapModule용 maskonly는 [-1, 1]의 값을 가지도록 Normalize
-2. Noise Removal 전에 G_result랑 Loss 계산
-3. Noise Removal 층 만들기
 4. Img_gt는 현재 [-1, 1]되도록 Normalize함 근데 VGG Percept의 이상적인 입력은 [0, 1]. 따라서, 먼저 [0, 1]로 만든다음 ImageNet mean, std로 Normal해주기

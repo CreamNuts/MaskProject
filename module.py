@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from utils import minusone2zero
 from torchvision.models import vgg19_bn
 
 class EncoderBlock(nn.Module):
@@ -80,15 +81,17 @@ class PerceptualLoss(nn.Module):
             for layer in block:
                 layer.requires_grad = False
         self.blocks = nn.ModuleList(blocks)
-        self.transform = transforms.Compose([
-            transforms.Normalize((-1.0, -1.0, -1.0), (2.0, 2.0, 2.0))
-        ])
+        self.minousone2zero = transforms.Normalize(minusone2zero['mean'], minusone2zero['std'])
+        self.vggnormal = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         
     def forward(self, input, target):
         if input.get_device() != next(self.blocks[0].parameters()).get_device():
             self.blocks = self.blocks.to(input.get_device())
         input = F.interpolate(input, size=224)
         target = F.interpolate(target, size=224)
+        for batch, (img1, img2) in enumerate(zip(input, target)):
+            input[batch] = self.vggnormal(self.minousone2zero(img1))
+            target[batch] = self.vggnormal(img2)
         loss = 0
         for block in self.blocks:
             input = block(input)

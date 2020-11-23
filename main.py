@@ -6,7 +6,7 @@ from PIL import Image
 from torchsummary import summary
 from torch.utils.data import random_split, DataLoader
 from torchvision import transforms
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from model import Mapmodule, Editmodule, Discriminator
 from module import PerceptualLoss, Reducenoise
 from dataset import Mask, create_loader
@@ -55,7 +55,6 @@ if __name__ == '__main__':
     map_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
-        #transforms.Normalize(zero2minusone['mean'][0], zero2minusone['std'][0])
     ])
     
     if args.mode in ['Edit', 'test']:
@@ -82,11 +81,11 @@ if __name__ == '__main__':
         D.weight_init(mean=0.0, std=0.02)
         D_optimizer = optim.Adam(D.parameters(), lr=args.lr, betas=(BETA1, BETA2))
         num_iter = 0
+        pbar = tqdm(trainloader, desc='Epoch 0, BL: 0.000, L1: 0.000, SS: 0.000, PL: 0.000')
         for epoch in range(args.epoch):
-            print(f'Epoch {epoch+1} Start')  
             G.train()
             D.train()
-            for mask, img, map in tqdm(trainloader):
+            for mask, img, map in pbar:
                 img = img.to(device)
                 input_img = torch.cat([mask, map], dim=1).to(device)
                 #Training D
@@ -105,14 +104,13 @@ if __name__ == '__main__':
                 G.zero_grad()
                 G_result = G(input_img)
                 D_result = D(G_result).squeeze()
-                
                 bce_loss = BCE_loss(D_result, torch.ones(D_result.size()).to(device))
                 l1_loss = L1_loss(G_result, img)
                 ssim_loss = 1 - SSIM_loss(G_result, img)
                 percept_loss = Percept_loss(G_result, img)
                 G_train_loss = bce_loss + args.l1_lambda*(l1_loss + ssim_loss + percept_loss)
                 G_train_loss.backward()
-
+                pbar.set_description(f'Epoch {epoch}, BL: {bce_loss:.3f}, L1: {l1_loss:.3f}, SS: {ssim_loss:.3f}, PL: {percept_loss:.3f}')
                 G_optimizer.step()
                 G_losses.append(G_train_loss)
                 if num_iter % 200 == 0:

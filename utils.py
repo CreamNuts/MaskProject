@@ -15,8 +15,8 @@ zero2minusone = {
 } 
 
 minusone2zero = {
-    'mean': [-1, -1, -1],
-    'std' : [2, 2, 2]
+    'mean': [-1.0, -1.0, -1.0],
+    'std' : [2.0, 2.0, 2.0]
 }
 
 MASK_PARAMETERS = {
