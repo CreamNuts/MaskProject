@@ -3,14 +3,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
-from torchvision.models import vgg19_bn
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 NUM_WORKERS = 4
 
-IMG_UNNORMALIZE = {
+zero2minusone = {
+    'mean': [0.5, 0.5, 0.5],
+    'std' : [0.5, 0.5, 0.5]
+} 
+
+minusone2zero = {
     'mean': [-1, -1, -1],
     'std' : [2, 2, 2]
 }
@@ -62,21 +66,31 @@ def get_parameters(dataset, batchsize):
     print(f'MASK_PARAMETERS : {MASK_PARAMETERS}')
     return IMG_PARAMETERS, MASK_PARAMETERS
 
-def save_image(input_img, mask_img, generate_img, num_iter, save_dir, unnormalize):
-    transform = transforms.Compose([
-        transforms.Normalize(unnormalize['mean'], unnormalize['std']),
-        transforms.ToPILImage()
-    ])
-    img = make_grid(input_img, nrow = 1)
-    mask = make_grid(mask_img, nrow = 1)
-    generate = make_grid(generate_img, nrow = 1)
-    result = torch.cat([mask, img, generate], dim=2)
-    result = transform(result)
-    result.save(os.path.join(save_dir, f'{num_iter}.jpg'))
+def save_image(mode, label_img, mask_img, generate_img, num_iter, save_dir, mask_unnormal, label_unnormal):
+    mask_unnormal = transforms.Normalize(mask_unnormal['mean'], mask_unnormal['std'])
+    if mode == 'Edit':
+        label_unnormal = transforms.Normalize(label_unnormal['mean'], label_unnormal['std'])
+        mask = mask_unnormal(make_grid(mask_img, nrow = 1))
+        label = label_unnormal(make_grid(label_img, nrow = 1))
+        generate = label_unnormal(make_grid(generate_img, nrow = 1))
+        result = torch.cat([mask, label, generate], dim=2)
+        result = transforms.ToPILImage()(result)
+    else:
+        mask = mask_unnormal(make_grid(mask_img, nrow = 1))
+        label = make_grid(label_img, nrow = 1)
+        generate = make_grid(generate_img, nrow = 1)
+        result = torch.cat([mask, label, generate], dim=2)
+        result = transforms.ToPILImage()(result)
+    result.save(os.path.join(save_dir, f'{num_iter}_{mode}.jpg'))
 
-def save_model(generator, discriminator, num_iter, save_dir):
-    torch.save({
-        'generator' : generator.state_dict(),
-        'discriminator' : discriminator.state_dict(),
-    }, os.path.join(save_dir, f'{num_iter}.pt'))
+def save_model(mode, num_iter, save_dir, generator, discriminator=None):
+    if mode == 'Edit':
+        torch.save({
+            'generator' : generator.state_dict(),
+            'discriminator' : discriminator.state_dict(),
+        }, os.path.join(save_dir, f'{num_iter}.pt'))
 
+    else:
+        torch.save({
+            'generator' : generator.state_dict()
+        }, os.path.join(save_dir, f'{num_iter}_map.pt'))

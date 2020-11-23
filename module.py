@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from torchvision.models import vgg19_bn
 
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride1=1):
@@ -165,7 +166,16 @@ class Erosion2d(Morphology):
     def __init__(self, in_channels, out_channels, kernel_size=5, soft_max=True, beta=20):
         super(Erosion2d, self).__init__(in_channels, out_channels, kernel_size, soft_max, beta, 'erosion2d')
 
+class Reducenoise(nn.Module):
+    def __init__(self, in_channels=1, out_channels=1):
+        super(Reducenoise, self).__init__()
+        self.reducenoise = nn.Sequential(
+            Erosion2d(in_channels, in_channels),
+            Dilation2d(in_channels, out_channels)
+        )
 
+    def forward(self, x):
+        return self.reducenoise(x)
 
 def fixed_padding(inputs, kernel_size, dilation):
     kernel_size_effective = kernel_size + (kernel_size - 1) * (dilation - 1)
@@ -174,28 +184,3 @@ def fixed_padding(inputs, kernel_size, dilation):
     pad_end = pad_total - pad_beg
     padded_inputs = F.pad(inputs, (pad_beg, pad_end, pad_beg, pad_end))
     return padded_inputs
-
-    
-# class EncoderBlock(nn.Module):
-#     def __init__(self, in_channels, out_channels):
-#         super(EncoderBlock, self).__init__()
-#         self.Encoder = nn.Sequential(
-#             nn.MaxPool2d(kernel_size=2, stride=2),
-#             ConvBlock(in_channels, out_channels)
-#         )
-
-#     def forward(self, input):
-#         return self.Encoder(input)
-
-# class DecoderBlock(nn.Module):
-#     def __init__(self, in_channels, out_channels):
-#         super(DecoderBlock, self).__init__()
-#         self.Upsampling = nn.ConvTranspose2d(in_channels, in_channels//2, kernel_size=2, stride=2)
-#         self.Decoder = ConvBlock(in_channels, out_channels)
-    
-#     def forward(self, input, skip):
-#         output = self.Upsampling(input)
-#         pad = (skip.size()[3] - output.size()[3], skip.size()[2] - output.size()[2]) #Width, Height
-#         output = F.pad(output, [pad[0]//2, pad[0] - pad[0]//2, pad[1]//2, pad[1] - pad[1]//2])
-#         output = torch.cat([skip, output], dim=1)
-#         return self.Decoder(output)

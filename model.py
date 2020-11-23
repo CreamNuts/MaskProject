@@ -20,7 +20,7 @@ class Mapmodule(nn.Module):
         self.decoder5 = nn.Sequential(
             nn.ConvTranspose2d(d*2, d, kernel_size=3, stride=1, padding=1),
             nn.ConvTranspose2d(d, out_channels, kernel_size=3, stride=1, padding=1),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     # weight_init
@@ -42,11 +42,11 @@ class Mapmodule(nn.Module):
         output = self.decoder5(output)
         return output
         
-class Generator(nn.Module):
+class Editmodule(nn.Module):
     # input shape : (3, 256, 256)
     # initializers
     def __init__(self, in_channels=4, out_channels=3, d=64):
-        super(Generator, self).__init__()
+        super(Editmodule, self).__init__()
         self.encoder1 = nn.Sequential(
             nn.Conv2d(in_channels, d, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(d, d, kernel_size=3, stride=1, padding=1),
