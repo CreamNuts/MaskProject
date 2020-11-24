@@ -50,3 +50,6 @@ $ python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir 입�
 * Pix2Pix : https://github.com/znxlwm/pytorch-pix2pix
 * Unet : https://github.com/milesial/Pytorch-UNet
 * PipeLine만들때 참고한 이전 대회 코드 : https://github.com/py-tonic/dacon_landmark
+
+## 내일 할 것
+* Loss는 학습 중엔 Iter당 표시하고 끝나면 에폭당 평균 표시로 바꾸기

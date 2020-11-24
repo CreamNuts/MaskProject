@@ -89,20 +89,20 @@ if __name__ == '__main__':
                 I_gt = img.to(device)
                 I_map = map_img.to(device)
                 #Training
-                if epoch < 5:
+                if epoch < 10:
                     G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer)
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D: None')
-                elif epoch < 25:
-                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole)
+                elif epoch < 30:
                     I_edit = G(I_input)
                     D_loss = D_train(I_edit, I_gt, D_whole, D_whole_optimizer)
+                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole)
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D_whole: {D_loss:.3f}')
                 else:
-                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask)
                     I_edit = G(I_input)
-                    D_whole_loss = D_train(I_edit, I_gt, D_mask, D_mask_optimizer)
+                    D_whole_loss = D_train(I_edit, I_gt, D_whole, D_whole_optimizer)
                     I_mask = I_gt*(torch.ones_like(I_map) - I_map) + G(I_input)*I_map
                     D_mask_loss = D_train(I_mask, I_gt, D_mask, D_mask_optimizer)
+                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask)
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, [D_Whole, D_Mask]: [{D_whole_loss:.3f}, {D_mask_loss:.3f}]')
                 #Save
                 num_iter += 1
