@@ -62,7 +62,6 @@ def create_mask(img_dir, mask_choice=2, mask_color=3):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Wear a face mask in the given picture')
     parser.add_argument('img_dir', type=str, help='Image Directory')
-    parser.add_argument('--show', action='store_true', help='Whether show picture with mask or not.')
     parser.add_argument('--mask_type', dest='mask', type=int, default=2, choices=[1, 2, 3], 
     help='Mask Type, 1: High coverage, 2: Medium coverage, 3: Low converage'
     )

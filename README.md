@@ -11,27 +11,26 @@ $ python3 main.py -h
 
 ```console
 usage: main.py [-h] -m MODE [--checkpoint DIR] [--data_dir DIR] [--model_dir DIR] [--result_dir DIR]
-               [--gpu GPU] [--l1_lambda Float] [--ratio Float] [--batchsize Int] [--lr Float] [--epoch Int]
+               [--gpu GPU] [--ratio Float] [--batchsize Int] [--lr Float] [--epoch Int]
 
 optional arguments:
-  -h, --help         show this help message and exit
-  -m MODE            Train : Use hold-out, Test : Make image
-  --checkpoint DIR   Directory of trained model
-  --data_dir DIR     Dataset or Test image directory. In inference, output image will be saved here
-  --model_dir DIR    Directory to save your model when training
-  --result_dir DIR   Directory to save your Input/True/Generate image when training
+  -h, --help        show this help message and exit
+  -m MODE           Edit : Train edit module, Map : Train map module, Test : Make image
+  --checkpoint DIR  Directory of trained model
+  --data_dir DIR    Dataset or Test image directory. In inference, output image will be saved here
+  --model_dir DIR   Directory to save your model when training
+  --result_dir DIR  Directory to save your Input/True/Generate image when training
   --gpu GPU
-  --l1_lambda Float  Default is 100
-  --ratio Float      Hold-out ratio, default is 0.8
-  --batchsize Int    Default is 64
-  --lr Float         Default is 0.0002
-  --epoch Int        Default is 10
+  --ratio Float     Hold-out ratio, default train is 0.1
+  --batchsize Int   Default is 64
+  --lr Float        Default is 0.0002
+  --epoch Int       Default is 500
 ```
 
 
 ## 서빙할때 테스트용 모델 사용법
 ```shell
-$ python3 main.py -m test --checkpoint checkpoint/4800.pt --data_dir 입력사진 
+$ python3 main.py -m test --checkpoint checkpoint/7200.pt --data_dir 입력사진 
 ```
 * 위 처럼 실행하면, 입력사진_result.jpg로 생성된 사진 나옴. 입력사진에 img.jpg라고 넣었으면 img_result.jpg가 생성되는 식
 
@@ -44,7 +43,3 @@ $ python3 main.py -m test --checkpoint checkpoint/4800.pt --data_dir 입력사�
 
 ## 여러 참고한 Github Repo
 * pytorch morphological : https://github.com/lc82111/pytorch_morphological_dilation2d_erosion2d
-
-
-## 내일 할 일 
-4. Img_gt는 현재 [-1, 1]되도록 Normalize함 근데 VGG Percept의 이상적인 입력은 [0, 1]. 따라서, 먼저 [0, 1]로 만든다음 ImageNet mean, std로 Normal해주기

@@ -48,7 +48,7 @@ def create_loader(dir, mode, mask_transform, img_transform, map_transform, batch
     num_train = int(len(dataset) * ratio)
     num_valid = len(dataset) - num_train
     trainset, valset = random_split(dataset, [num_train, num_valid])
-    print(f'Number of [Train Images, Valid Images] is [{len(trainset)}. {len(valset)}]')
+    print(f'Number of [Train Images, Valid Images] is [{len(trainset)}, {len(valset)}]')
     trainloader = DataLoader(trainset, shuffle=True, batch_size=batchsize)
     valloader = DataLoader(valset, batch_size=4)
     return trainloader, valloader

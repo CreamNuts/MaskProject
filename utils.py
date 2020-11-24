@@ -5,29 +5,12 @@ import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
+import pytorch_ssim
+from module import G_loss
+from parameter import *
 from tqdm import tqdm
 
 NUM_WORKERS = 4
-
-zero2minusone = {
-    'mean': [0.5, 0.5, 0.5],
-    'std' : [0.5, 0.5, 0.5]
-} 
-
-minusone2zero = {
-    'mean': [-1.0, -1.0, -1.0],
-    'std' : [2.0, 2.0, 2.0]
-}
-
-MASK_PARAMETERS = {
-    'mean': [0.4712, 0.4701, 0.4689],
-    'std': [0.3324, 0.3320, 0.3319]
-    }
-
-MASK_UNNORMALIZE = {
-    'mean' : [-mean/std for mean, std in zip(MASK_PARAMETERS['mean'], MASK_PARAMETERS['std'])],
-    'std' : [1.0/std for std in MASK_PARAMETERS['std']]
-}
 
 def get_parameters(dataset, batchsize):
     '''
@@ -83,14 +66,52 @@ def save_image(mode, label_img, mask_img, generate_img, num_iter, save_dir, mask
         result = transforms.ToPILImage()(result)
     result.save(os.path.join(save_dir, f'{num_iter}_{mode}.jpg'))
 
-def save_model(mode, num_iter, save_dir, generator, discriminator=None):
+def save_model(mode, num_iter, save_dir, generator, discriminator_whole, discriminator_mask):
     if mode == 'Edit':
         torch.save({
             'generator' : generator.state_dict(),
-            'discriminator' : discriminator.state_dict(),
+            'discriminator_whole' : discriminator_whole.state_dict(),
+            'discriminator_mask' : discriminator_mask.state_dict()
         }, os.path.join(save_dir, f'{num_iter}.pt'))
 
     else:
         torch.save({
             'generator' : generator.state_dict()
         }, os.path.join(save_dir, f'{num_iter}_map.pt'))
+
+Total_loss = G_loss()
+BCE_loss = nn.BCELoss()
+
+def D_train(fake_img, real_img, D, optimizer):
+    D.train()
+    D.zero_grad()
+    D_real = D(real_img).squeeze()
+    D_real_loss = BCE_loss(D_real, torch.ones(D_real.size()).to(D_real))
+    D_fake = D(fake_img).squeeze()
+    D_fake_loss = BCE_loss(D_fake, torch.zeros(D_fake.size()).to(D_fake))
+    D_train_loss = (D_real_loss + D_fake_loss)/2
+    D_train_loss.backward()
+    optimizer.step()
+    return D_train_loss
+
+def G_train(input_img, real_img, map_img, G, optimizer, D_whole = None, D_mask = None):
+    G.train()
+    G.zero_grad()
+    I_edit = G(input_img)
+    I_mask = None
+    if D_whole is not None:
+        whole_result = D_whole(I_edit).squeeze()
+        bce_whole = BCE_loss(whole_result, torch.ones(whole_result.size()).to(whole_result))
+        G_train_loss = 100*Total_loss(I_edit, real_img) + bce_whole
+        if D_mask is not None:
+            I_mask = real_img*(torch.ones_like(map_img) - map_img) + I_edit*map_img
+            mask_result = D_mask(I_mask).squeeze()
+            bce_mask = BCE_loss(mask_result, torch.ones(mask_result.size()).to(mask_result))
+            G_train_loss = 100*Total_loss(I_edit, real_img) + 0.3*bce_whole + 0.7*bce_mask
+    else:
+        G_train_loss = 100*Total_loss(I_edit, real_img)
+    G_train_loss.backward()
+    optimizer.step()
+    return G_train_loss
+    
+#
