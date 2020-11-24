@@ -83,7 +83,7 @@ if __name__ == '__main__':
         D_mask_optimizer = optim.Adam(D_mask.parameters(), lr=args.lr, betas=(BETA1, BETA2))
         num_iter = 0
         for epoch in range(args.epoch):
-            pbar = tqdm(trainloader, desc=f'Epoch 0, G_loss: 0.000, D_loss: None')
+            pbar = tqdm(trainloader, desc=f'Epoch 0, G: 0.000, D: None')
             for mask, img, map_img in pbar:
                 I_input = torch.cat([mask, map_img], dim=1).to(device)
                 I_gt = img.to(device)
@@ -91,26 +91,27 @@ if __name__ == '__main__':
                 #Training
                 if epoch < 5:
                     G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer)
-                    pbar.set_description(f'Epoch {epoch}, G_loss: {G_loss:.3f}, D_loss: None')
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D: None')
                 elif epoch < 25:
                     G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole)
                     I_edit = G(I_input)
                     D_loss = D_train(I_edit, I_gt, D_whole, D_whole_optimizer)
-                    pbar.set_description(f'Epoch {epoch}, G_loss: {G_loss:.3f}, D_loss: {D_loss:.3f}')
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D_whole: {D_loss:.3f}')
                 else:
                     G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask)
+                    I_edit = G(I_input)
+                    D_whole_loss = D_train(I_edit, I_gt, D_mask, D_mask_optimizer)
                     I_mask = I_gt*(torch.ones_like(I_map) - I_map) + G(I_input)*I_map
-                    D_loss = D_train(I_mask, I_gt, D_mask, D_mask_optimizer)
-                    pbar.set_description(f'Epoch {epoch}, G_loss: {G_loss:.3f}, D_loss: {D_loss:.3f}')
+                    D_mask_loss = D_train(I_mask, I_gt, D_mask, D_mask_optimizer)
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, [D_Whole, D_Mask]: [{D_whole_loss:.3f}, {D_mask_loss:.3f}]')
                 #Save
-                if epoch % 1 == 0:
-                    G.eval()
-                    with torch.no_grad():
-                        mask, img, map_img = iter(valloader).next()
-                        generate = G(torch.cat([mask, map_img], dim=1).to(device)).cpu()
-                    save_image(args.mode, img, mask, generate, num_iter, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
-                    save_model(args.mode, num_iter, args.model_dir, G, D_whole, D_mask)
                 num_iter += 1
+            G.eval()
+            with torch.no_grad():
+                mask, img, map_img = iter(valloader).next()
+                generate = G(torch.cat([mask, map_img], dim=1).to(device)).cpu()
+            save_image(args.mode, img, mask, generate, num_iter, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
+            save_model(args.mode, num_iter, args.model_dir, G, D_whole, D_mask)
 
     elif args.mode =='Map':
         for epoch in range(args.epoch):
