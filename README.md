@@ -30,10 +30,11 @@ optional arguments:
 
 ## 서빙할때 테스트용 모델 사용법
 ```shell
-$ python3 main.py -m test --checkpoint checkpoint/7200.pt --data_dir 입력사진 
+$ python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir 입력사진 
 ```
 * 위 처럼 실행하면, 입력사진_result.jpg로 생성된 사진 나옴. 입력사진에 img.jpg라고 넣었으면 img_result.jpg가 생성되는 식
 
+## 개발 현황
 1.  이것 저것 여러 loss 추가하기 전에 기본적인 Gan+L1 Loss만 추가했을때 2 epoch 결과물
 <img src='./1.jpg'>
 
@@ -41,5 +42,11 @@ $ python3 main.py -m test --checkpoint checkpoint/7200.pt --data_dir 입력사�
 <img src='./2.gif'>
  > 문제는 Real Image가 들어가면 작동을 하지 않는다. 마스크 데이터셋 만들때 저 default 마스크가 아니면 안되는듯. 그래서 데이터셋 새로 만들 예정
 
+3. 하려고 하는 것과 거의 유사한 논문 발견. 구현된 코드가 없어서 논문 내용 기반으로 구현 후 모델 학습 시키는 중 : https://ieeexplore.ieee.org/document/9019697
+
 ## 여러 참고한 Github Repo
 * pytorch morphological : https://github.com/lc82111/pytorch_morphological_dilation2d_erosion2d
+* CycleGan, Pix2Pix : https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
+* Pix2Pix : https://github.com/znxlwm/pytorch-pix2pix
+* Unet : https://github.com/milesial/Pytorch-UNet
+* PipeLine만들때 참고한 이전 대회 코드 : https://github.com/py-tonic/dacon_landmark
