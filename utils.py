@@ -66,7 +66,7 @@ def save_image(mode, label_img, mask_img, generate_img, num_iter, save_dir, mask
         result = transforms.ToPILImage()(result)
     result.save(os.path.join(save_dir, f'{num_iter}_{mode}.jpg'))
 
-def save_model(mode, num_iter, save_dir, generator, discriminator_whole, discriminator_mask):
+def save_model(mode, num_iter, save_dir, generator, discriminator_whole=None, discriminator_mask=None):
     if mode == 'Edit':
         torch.save({
             'generator' : generator.state_dict(),
