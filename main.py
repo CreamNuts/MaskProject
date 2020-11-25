@@ -72,7 +72,7 @@ if __name__ == '__main__':
         G_Edit = Editmodule(in_channels=4).to(device)
         G_Edit.load_state_dict(torch.load(args.checkpoint)['generator'])
         G_Map = Mapmodule(in_channels=3).to(device)
-        G_Map.load_state_dict(torch.load('checkpoint/1400_map.pt')['generator'])
+        G_Map.load_state_dict(torch.load('checkpoint_legacy/1400_map.pt')['generator'])
 
     if args.mode == 'Edit':
         D_whole = Discriminator().to(device)
@@ -83,41 +83,49 @@ if __name__ == '__main__':
         D_mask_optimizer = optim.Adam(D_mask.parameters(), lr=args.lr, betas=(BETA1, BETA2))
         num_iter = 0
         for epoch in range(args.epoch):
+            G_loss_list, Dw_loss_list, Dm_loss_list = [], [], []
             pbar = tqdm(trainloader, desc=f'Epoch 0, G: 0.000, D: None')
             for mask, img, map_img in pbar:
                 I_input = torch.cat([mask, map_img], dim=1).to(device)
                 I_gt = img.to(device)
                 I_map = map_img.to(device)
                 #Training
-                if epoch < 10:
-                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer)
+                if epoch < 100:
+                    G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer))
+                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D: None')
-                elif epoch < 30:
+                elif epoch < 300:
                     I_edit = G(I_input)
-                    D_loss = D_train(I_edit, I_gt, D_whole, D_whole_optimizer)
-                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole)
-                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D_whole: {D_loss:.3f}')
+                    Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
+                    G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole))
+                    Dw_loss = sum(Dw_loss_list)/(num_iter - epoch*len(trainloader))
+                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D_whole: {Dw_loss:.3f}')
                 else:
                     I_edit = G(I_input)
-                    D_whole_loss = D_train(I_edit, I_gt, D_whole, D_whole_optimizer)
+                    Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
                     I_mask = I_gt*(torch.ones_like(I_map) - I_map) + G(I_input)*I_map
-                    D_mask_loss = D_train(I_mask, I_gt, D_mask, D_mask_optimizer)
-                    G_loss = G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask)
-                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, [D_Whole, D_Mask]: [{D_whole_loss:.3f}, {D_mask_loss:.3f}]')
+                    Dm_loss_list.append(D_train(I_mask, I_gt, D_mask, D_mask_optimizer))
+                    G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask))
+                    Dw_loss = sum(Dw_loss_list)/(num_iter - epoch*len(trainloader))
+                    Dm_loss = sum(Dm_loss_list)/(num_iter - epoch*len(trainloader))
+                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, [D_Whole, D_Mask]: [{Dw_loss:.3f}, {Dm_loss:.3f}]')
                 #Save
                 num_iter += 1
-            G.eval()
-            with torch.no_grad():
-                mask, img, map_img = iter(valloader).next()
-                generate = G(torch.cat([mask, map_img], dim=1).to(device)).cpu()
-            save_image(args.mode, img, mask, generate, num_iter, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
-            save_model(args.mode, num_iter, args.model_dir, G, D_whole, D_mask)
+            if epoch%5 == 0:
+                G.eval()
+                with torch.no_grad():
+                    mask, img, map_img = iter(valloader).next()
+                    generate = G(torch.cat([mask, map_img], dim=1).to(device)).cpu()
+                save_image(args.mode, img, mask, generate, epoch, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
+                save_model(args.mode, epoch, args.model_dir, G, D_whole, D_mask)
 
     elif args.mode =='Map':
+        num_iter = 0
         for epoch in range(args.epoch):
             print(f'Epoch {epoch+1} Start')  
             G.train()
-            num_iter = 0
             for mask, map_img in tqdm(trainloader):
                 map_img = map_img.to(device)
                 mask = mask.to(device)
