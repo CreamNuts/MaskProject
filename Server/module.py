@@ -2,10 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-import pytorch_ssim
-from parameter import minusone2zero
-from torchvision.models import vgg19_bn
 
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride1=1):
@@ -69,40 +65,6 @@ class SEBlock(nn.Module):
         se_weight = self.SE(se_weight).view(batch, channel, 1, 1)
         return input * se_weight.expand_as(input)
 
-class PerceptualLoss(nn.Module):
-    def __init__(self):
-        super(PerceptualLoss, self).__init__()
-        vgg = vgg19_bn(pretrained=True)
-        blocks = []
-        blocks.append(vgg.features[:6].eval())
-        blocks.append(vgg.features[7:13].eval())
-        blocks.append(vgg.features[13:26].eval())
-        blocks.append(vgg.features[26:39].eval())
-        blocks.append(vgg.features[39:].eval())
-        for block in blocks:
-            for layer in block:
-                layer.requires_grad = False
-        self.blocks = nn.ModuleList(blocks)
-        self.minousone2zero = transforms.Normalize(minusone2zero['mean'], minusone2zero['std'])
-        self.vggnormal = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        
-    def forward(self, input, target):
-        if input.get_device() != next(self.blocks[0].parameters()).get_device():
-            self.blocks = self.blocks.to(input.get_device())
-        with torch.no_grad():
-            input = F.interpolate(input, size=224)
-            target = F.interpolate(target, size=224)
-            for batch, (img1, img2) in enumerate(zip(input, target)):
-                input[batch] = self.vggnormal(self.minousone2zero(img1))
-                target[batch] = self.vggnormal(img2)
-            loss = 0
-            for idx, block in enumerate(self.blocks):
-                input = block(input)
-                target = block(target)
-                if idx >= 2:
-                    loss += F.l1_loss(input, target)
-        return loss
-        
 class Morphology(nn.Module):
     '''
     Base class for morpholigical operators 
@@ -191,13 +153,3 @@ def fixed_padding(inputs, kernel_size, dilation):
     pad_end = pad_total - pad_beg
     padded_inputs = F.pad(inputs, (pad_beg, pad_end, pad_beg, pad_end))
     return padded_inputs
-
-class G_loss(nn.Module):
-    def __init__(self):
-        super(G_loss, self).__init__()
-        self.l1 = nn.L1Loss()
-        #self.percept = PerceptualLoss()
-        self.ssim = pytorch_ssim.SSIM(window_size=11)
-
-    def forward(self, fake, real):
-        return self.l1(fake, real) + 1 - self.ssim(fake, real) #+ self.percept(fake, real)

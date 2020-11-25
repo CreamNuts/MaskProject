@@ -6,3 +6,5 @@ Project.code-workspace
 *.sh
 *.out
 *.ipynb
+*.txt
+*.png

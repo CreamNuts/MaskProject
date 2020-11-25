@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+
+{% block contents %}
+    
+<div>
+    <div class="col-sm-12 col-md-10 col-md-offset-1">
+    <br>
+        <h1>Unmasking Program</h1>
+        <p>
+        Drag and drop a file or select add Image in the left box.
+        The inference will be shown in the the right box.
+        <p>
+    <br>
+          
+        <div class="image_block">
+        {% block imageblock %}{% endblock %}
+        </div>
+        
+    </div>
+</div>
+
+<p>This is developed using the Gan</p>
+{% endblock %}
+    
