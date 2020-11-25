@@ -61,7 +61,10 @@ $ python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir 입�
   <img src='./4.gif'>
 </div>
 
-> 학습 도중의 D_loss로 볼 때 D가 너무 명확히 구분하는 듯. 따라서 빠른 확인을 위해 데이터 수를 더욱 줄이고 G의 학습 에폭을 늘려서 실험중
+> 학습 도중의 D_loss로 볼 때 D가 너무 명확히 구분하는 듯. 따라서 빠른 확인을 위해 데이터 수를 더욱 줄이고 G의 학습 에폭을 늘려서 실험중 -> Mode Collapse가 일어나는 듯. 지속적으로 시도 중
+
+## Flask를 이용한 웹 배포
+* app.py를 통해 플라스크로 배포 가능
 
 ## 여러 참고한 Github Repo
 * pytorch morphological : https://github.com/lc82111/pytorch_morphological_dilation2d_erosion2d
@@ -69,6 +72,3 @@ $ python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir 입�
 * Pix2Pix : https://github.com/znxlwm/pytorch-pix2pix
 * Unet : https://github.com/milesial/Pytorch-UNet
 * PipeLine만들때 참고한 이전 대회 코드 : https://github.com/py-tonic/dacon_landmark
-
-## 내일 할 것
-* Loss는 학습 중엔 Iter당 표시하고 끝나면 에폭당 평균 표시로 바꾸기
