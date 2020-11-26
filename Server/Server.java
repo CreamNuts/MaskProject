@@ -23,8 +23,9 @@ public class Server implements Runnable {
     public static final int ServerPORT = 9898;
     public static final String ServerIP = "155.230.93.237";
     public ServerSocket serverSocket;
-    public Socket csock;
     public Image recvImg;
+    public ObjectOutputStream objOutStream;
+    public ObjectInputStream objInputStream;
  
 	public static void main(String[] args) {
 	   Thread ServerThread = new Thread(new Server());
@@ -43,38 +44,48 @@ public class Server implements Runnable {
 			while (true) {
 				Socket cilentSocket = serverSocket.accept();
 				System.out.println("Connect!");
+				
 				try {
 					//recv img
-					byte[] imageByte = null;
-					ObjectInputStream objInputStream = new ObjectInputStream(cilentSocket.getInputStream());
-					imageByte = (byte[]) objInputStream.readObject();
+					objInputStream = new ObjectInputStream(cilentSocket.getInputStream());
+					byte[] imageByte = (byte[]) objInputStream.readObject();
 					
 					ByteArrayInputStream inputStream = new ByteArrayInputStream(imageByte);
 					BufferedImage bufferedImage = ImageIO.read(inputStream);
-					ImageIO.write(bufferedImage, "jpg", new File("../Images/" + date));
-					System.out.println("S: Received: 'Image'");
-					objInputStream.close();
-
-					try {
-						String msg = null;
-						Process process = Runtime.getRuntime().exec("../python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir ./Images/" + date + ".jpg");
-						BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-			            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-			            while ((msg = stdInput.readLine()) != null)
-			                System.out.println(msg);
-			            while ((msg = stdError.readLine()) != null)
-			            	System.out.println(msg);
-			            }catch (IOException e) {
-			                e.printStackTrace();
-			                System.exit(-1);
-			            }
-					
-					byte[] sendImageByte = Files.readAllBytes(Paths.get("../Images/" + date + "_result.jpg"));
-					
+					ImageIO.write(bufferedImage, "jpg", new File("../Images/" + date + ".jpg"));
+					System.out.println("Received: 'Image'");
+				} catch (Exception e) {
+					System.out.println("Error");
+					e.printStackTrace();
+				}
+				
+				try {
+					String[] command = new String[8];
+			        command[0] = "python";
+			        command[1] = "/mnt/serverhdd2/jiwook/project/main.py";
+			        command[2] = "-m";
+			        command[3] = "Test";
+			        command[4] = "--checkpoint";
+			        command[5] = "/mnt/serverhdd2/jiwook/project/Server/Edit.pt";
+			        command[6] = "--data_dir";
+			        command[7] = "/mnt/serverhdd2/jiwook/project/Images/" + date + ".jpg";
+					String msg = null;
+					Process process = Runtime.getRuntime().exec(command);
+					BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
+			        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+			        while ((msg = stdInput.readLine()) != null)
+			        	System.out.println(msg);
+			        while ((msg = stdError.readLine()) != null)
+			          	System.out.println(msg);
+			    } catch (Exception e) {
+			        e.printStackTrace();
+			    }
+				
+				try {	
+					byte[] sendImageByte = Files.readAllBytes(Paths.get("../Images/" + date + "_result.jpg"));					
 					//send img
-					ObjectOutputStream objOutStream = new ObjectOutputStream(cilentSocket.getOutputStream());
+					objOutStream = new ObjectOutputStream(cilentSocket.getOutputStream());
 					objOutStream.writeObject(sendImageByte);
-					objOutStream.close();
 				} catch (Exception e) {
 					System.out.println("Error");
 					e.printStackTrace();
@@ -87,5 +98,6 @@ public class Server implements Runnable {
 			System.out.println("Error");
 			e.printStackTrace();
 		}
-	} 
+		return;
+	}
 }
