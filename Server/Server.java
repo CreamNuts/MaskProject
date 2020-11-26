@@ -60,7 +60,7 @@ public class Server implements Runnable {
 				}
 				
 				try {
-					String[] command = new String[8];
+					String[] command = new String[10];
 			        command[0] = "python";
 			        command[1] = "/mnt/serverhdd2/jiwook/project/main.py";
 			        command[2] = "-m";
@@ -69,6 +69,8 @@ public class Server implements Runnable {
 			        command[5] = "/mnt/serverhdd2/jiwook/project/Server/Edit.pt";
 			        command[6] = "--data_dir";
 			        command[7] = "/mnt/serverhdd2/jiwook/project/Images/" + date + ".jpg";
+			        command[8] = "--gpu";
+			        command[9] = "None";
 					String msg = null;
 					Process process = Runtime.getRuntime().exec(command);
 					BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -90,7 +92,7 @@ public class Server implements Runnable {
 					System.out.println("Error");
 					e.printStackTrace();
 				} finally {
-					cilentSocket.close();
+					//cilentSocket.close();
 					System.out.println("Done");
 				}
 			}
@@ -98,6 +100,5 @@ public class Server implements Runnable {
 			System.out.println("Error");
 			e.printStackTrace();
 		}
-		return;
 	}
 }
