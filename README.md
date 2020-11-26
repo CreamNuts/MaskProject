@@ -63,8 +63,30 @@ $ python3 main.py -m test --checkpoint checkpoint_legacy/7200.pt --data_dir 입�
 
 > 학습 도중의 D_loss로 볼 때 D가 너무 명확히 구분하는 듯. 따라서 빠른 확인을 위해 데이터 수를 더욱 줄이고 G의 학습 에폭을 늘려서 실험중 -> Mode Collapse가 일어나는 듯. 지속적으로 시도 중
 
+
 ## Flask를 이용한 웹 배포
 * app.py를 통해 플라스크로 배포 가능
+
+
+## Android Application
+* Linux 서버와 Android 클라이언트간 TCP 소켓 통신
+
+<div style="text-align: center">
+  <img src='./AndroidApplicationTest.gif'> 
+</div>
+
+* 사용법
+```shell
+$ conda activate <가상환경이름>
+$ cd ./Server
+$ javac Server.java
+$ java Server
+```
+* 가상환경 activate -> Server.java가 있는 dir로 이동 -> Server.java 컴파일 -> Server 실행
+* Server 실행 후 Android Application 실행
+* OPEN IMAGE : 이미지 가져오기
+* START : 이미지 송수신 및 모델 실행
+
 
 ## 여러 참고한 Github Repo
 * pytorch morphological : https://github.com/lc82111/pytorch_morphological_dilation2d_erosion2d
