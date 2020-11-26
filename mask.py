@@ -48,8 +48,8 @@ def create_mask(img_dir, mask_choice=2, mask_color=3):
     color_type = {1: color_blue, 2: color_black, 3: color_white}
     # change parameter [mask_type] and color_type for various combination
     outline = cv2.polylines(img, [mask_type[mask_choice]], True, color_type[mask_color], thickness=2, lineType=cv2.LINE_8)
+    #cv2.imwrite(img_dir[:-4]+"_outline.jpg", outline)
     mask = cv2.fillPoly(outline, [mask_type[mask_choice]], color_type[mask_color], lineType=cv2.LINE_AA)
-    
     outline = cv2.polylines(black, [mask_type[mask_choice]], True, 255, thickness=2, lineType=cv2.LINE_8)
     only_mask = cv2.fillPoly(outline, [mask_type[mask_choice]], 255, lineType=cv2.LINE_AA)
 

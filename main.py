@@ -70,9 +70,9 @@ if __name__ == '__main__':
         G_optimizer = optim.Adam(G.parameters(), lr=args.lr, betas=(BETA1, BETA2))
     else:
         G_Edit = Editmodule(in_channels=4).to(device)
-        G_Edit.load_state_dict(torch.load(args.checkpoint)['generator'])
+        G_Edit.load_state_dict(torch.load(args.checkpoint, map_location=device)['generator'])
         G_Map = Mapmodule(in_channels=3).to(device)
-        G_Map.load_state_dict(torch.load('checkpoint_legacy/1400_map.pt')['generator'])
+        G_Map.load_state_dict(torch.load('/mnt/serverhdd2/jiwook/project/Server/Map.pt', map_location=device)['generator'])
 
     if args.mode == 'Edit':
         D_whole = Discriminator().to(device)
