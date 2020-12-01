@@ -27,10 +27,11 @@ parser.add_argument('--lr', metavar='Float', type=float, default=0.0002, help='D
 parser.add_argument('--epoch', metavar='Int', type=int, default=500, help='Default is 500')
 args = parser.parse_args()
 
-if args.mode == 'Test':
-    assert os.path.isfile(args.data_dir), 'In testing, data_dir is a file, not a directory'
 BETA1 = 0.5
 BETA2 = 0.999
+
+if args.mode == 'Test':
+    assert os.path.isfile(args.data_dir), 'In testing, data_dir is a file, not a directory'
 
 if args.gpu == None:
     device = torch.device('cpu')
@@ -81,38 +82,34 @@ if __name__ == '__main__':
         D_mask = Discriminator().to(device)
         D_mask.weight_init(mean=0.0, std=0.02)
         D_mask_optimizer = optim.Adam(D_mask.parameters(), lr=args.lr, betas=(BETA1, BETA2))
-        num_iter = 0
         for epoch in range(args.epoch):
             G_loss_list, Dw_loss_list, Dm_loss_list = [], [], []
-            pbar = tqdm(trainloader, desc=f'Epoch 0, G: 0.000, D: None')
+            pbar = tqdm(trainloader, desc=f'Epoch {epoch}, G: 0.000, D: None')
             for mask, img, map_img in pbar:
                 I_input = torch.cat([mask, map_img], dim=1).to(device)
                 I_gt = img.to(device)
                 I_map = map_img.to(device)
                 #Training
-                if epoch < 100:
+                if epoch < 1:
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer))
-                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
-                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D: None')
-                elif epoch < 300:
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, D: None')
+                elif epoch < 3:
                     I_edit = G(I_input)
                     Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole))
-                    Dw_loss = sum(Dw_loss_list)/(num_iter - epoch*len(trainloader))
-                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
-                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, D_whole: {Dw_loss:.3f}')
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, D_whole: {Dw_loss_list[-1]:.3f}')
                 else:
                     I_edit = G(I_input)
                     Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
                     I_mask = I_gt*(torch.ones_like(I_map) - I_map) + G(I_input)*I_map
                     Dm_loss_list.append(D_train(I_mask, I_gt, D_mask, D_mask_optimizer))
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask))
-                    Dw_loss = sum(Dw_loss_list)/(num_iter - epoch*len(trainloader))
-                    Dm_loss = sum(Dm_loss_list)/(num_iter - epoch*len(trainloader))
-                    G_loss = sum(G_loss_list)/(num_iter - epoch*len(trainloader))
-                    pbar.set_description(f'Epoch {epoch}, G: {G_loss:.3f}, [D_Whole, D_Mask]: [{Dw_loss:.3f}, {Dm_loss:.3f}]')
-                #Save
-                num_iter += 1
+                    pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, [D_Whole, D_Mask]: [{Dw_loss_list[-1]:.3f}, {Dm_loss_list[-1]:.3f}]')
+            G_loss = f'{sum(G_loss_list)/len(trainloader):.3f}'
+            Dw_loss = f'{sum(Dw_loss_list)/len(trainloader):.3f}' if len(Dw_loss_list) != 0 else 'None'
+            Dm_loss = f'{sum(Dm_loss_list)/len(trainloader):.3f}' if len(Dm_loss_list) != 0 else 'None'
+            print(f'Avg Loss per Epoch - G: {G_loss}, D_Whole: {Dw_loss}, D_Mask: {Dm_loss}')
+            #Save
             if epoch%5 == 0:
                 G.eval()
                 with torch.no_grad():

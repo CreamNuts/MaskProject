@@ -196,8 +196,8 @@ class G_loss(nn.Module):
     def __init__(self):
         super(G_loss, self).__init__()
         self.l1 = nn.L1Loss()
-        #self.percept = PerceptualLoss()
+        self.percept = PerceptualLoss()
         self.ssim = pytorch_ssim.SSIM(window_size=11)
 
     def forward(self, fake, real):
-        return self.l1(fake, real) + 1 - self.ssim(fake, real) #+ self.percept(fake, real)
+        return self.l1(fake, real) + 1 - self.ssim(fake, real) + self.percept(fake, real)
