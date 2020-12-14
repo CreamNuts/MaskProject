@@ -93,10 +93,10 @@ if __name__ == '__main__':
                 I_gt = img.to(device)
                 I_map = map_img.to(device)
                 #Training
-                if epoch < 1:
+                if epoch < 50:
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer))
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, D: None')
-                elif epoch < 2:
+                elif epoch < 250:
                     I_edit = G(I_input)
                     Dw_loss_list.append(D_train(I_input, I_edit, I_gt, D_whole, D_whole_optimizer))
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole))
