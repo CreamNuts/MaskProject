@@ -8,3 +8,4 @@ Project.code-workspace
 *.ipynb
 *.txt
 *.png
+*tfevent*

@@ -1,9 +1,7 @@
 import os, argparse, torch
 import torch.optim as optim
-import torch.nn as nn
 from PIL import Image
-from torchsummary import summary
-from torch.utils.data import random_split, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm, trange
 from model import Mapmodule, Editmodule, Discriminator
@@ -11,7 +9,6 @@ from module import PerceptualLoss, Reducenoise, G_loss
 from dataset import Mask, create_loader
 from utils import *
 import sys
-sys.stdout.flush()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', metavar='MODE', dest='mode', default='Edit', choices=['Edit', 'Map', 'Test'], required=True, help='Edit : Train edit module, Map : Train map module, Test : Make image')
@@ -21,6 +18,7 @@ parser.add_argument('--data_dir', metavar='DIR', default='../data/celeba', help=
 parser.add_argument('--model_dir', metavar='DIR', default='./checkpoint', help='Directory to save your model when training')
 parser.add_argument('--result_dir', metavar='DIR', default='./result', help='Directory to save your Input/True/Generate image when training')
 parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--tensorboard', metavar='Bool', default=True, help='Use Tensorboard, set True')
 parser.add_argument('--ratio', metavar='Float', type=float, default=0.1, help='Hold-out ratio, default train is 0.1')
 parser.add_argument('--batchsize', metavar='Int', type=int, default=64, help='Default is 64')
 parser.add_argument('--lr', metavar='Float', type=float, default=0.0002, help='Default is 0.0002')
@@ -29,6 +27,10 @@ args = parser.parse_args()
 
 BETA1 = 0.5
 BETA2 = 0.999
+
+if args.tensorboard is True:
+    writer = SummaryWriter(f'runs/{args.mode}_{args.lr}_{args.batchsize}')
+else: writer = None
 
 if args.mode == 'Test':
     assert os.path.isfile(args.data_dir), 'In testing, data_dir is a file, not a directory'
@@ -76,14 +78,15 @@ if __name__ == '__main__':
         G_Map.load_state_dict(torch.load('/mnt/serverhdd2/jiwook/project/Server/Map.pt', map_location=device)['generator'])
 
     if args.mode == 'Edit':
-        D_whole = Discriminator().to(device)
+        D_whole = Discriminator(in_channels=7).to(device)
         D_whole.weight_init(mean=0.0, std=0.02)
         D_whole_optimizer = optim.Adam(D_whole.parameters(), lr=args.lr, betas=(BETA1, BETA2))
-        D_mask = Discriminator().to(device)
+        D_mask = Discriminator(in_channels=7).to(device)
         D_mask.weight_init(mean=0.0, std=0.02)
         D_mask_optimizer = optim.Adam(D_mask.parameters(), lr=args.lr, betas=(BETA1, BETA2))
+        num_iter = 0
         for epoch in range(args.epoch):
-            G_loss_list, Dw_loss_list, Dm_loss_list = [], [], []
+            G_loss_list, Dw_loss_list, Dm_loss_list = [0], [0], [0]
             pbar = tqdm(trainloader, desc=f'Epoch {epoch}, G: 0.000, D: None')
             for mask, img, map_img in pbar:
                 I_input = torch.cat([mask, map_img], dim=1).to(device)
@@ -93,21 +96,24 @@ if __name__ == '__main__':
                 if epoch < 1:
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer))
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, D: None')
-                elif epoch < 3:
+                elif epoch < 2:
                     I_edit = G(I_input)
-                    Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
+                    Dw_loss_list.append(D_train(I_input, I_edit, I_gt, D_whole, D_whole_optimizer))
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole))
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, D_whole: {Dw_loss_list[-1]:.3f}')
                 else:
                     I_edit = G(I_input)
-                    Dw_loss_list.append(D_train(I_edit, I_gt, D_whole, D_whole_optimizer))
+                    Dw_loss_list.append(D_train(I_input, I_edit, I_gt, D_whole, D_whole_optimizer))
                     I_mask = I_gt*(torch.ones_like(I_map) - I_map) + G(I_input)*I_map
-                    Dm_loss_list.append(D_train(I_mask, I_gt, D_mask, D_mask_optimizer))
+                    Dm_loss_list.append(D_train(I_input, I_mask, I_gt, D_mask, D_mask_optimizer))
                     G_loss_list.append(G_train(I_input, I_gt, I_map, G, G_optimizer, D_whole, D_mask))
                     pbar.set_description(f'Epoch {epoch}, G: {G_loss_list[-1]:.3f}, [D_Whole, D_Mask]: [{Dw_loss_list[-1]:.3f}, {Dm_loss_list[-1]:.3f}]')
-            G_loss = f'{sum(G_loss_list)/len(trainloader):.3f}'
-            Dw_loss = f'{sum(Dw_loss_list)/len(trainloader):.3f}' if len(Dw_loss_list) != 0 else 'None'
-            Dm_loss = f'{sum(Dm_loss_list)/len(trainloader):.3f}' if len(Dm_loss_list) != 0 else 'None'
+                if args.tensorboard is True:
+                    writer.add_scalars('Loss per batch', {'G':G_loss_list[-1], 'D_whole':Dw_loss_list[-1], 'D_mask':Dm_loss_list[-1]}, num_iter)
+                num_iter += 1
+            G_loss = f'{sum(G_loss_list)/(len(trainloader)+1):.3f}'
+            Dw_loss = f'{sum(Dw_loss_list)/(len(trainloader)+1):.3f}' if len(Dw_loss_list) > 1 else 'None'
+            Dm_loss = f'{sum(Dm_loss_list)/(len(trainloader)+1):.3f}' if len(Dm_loss_list) > 1 else 'None'
             print(f'Avg Loss per Epoch - G: {G_loss}, D_Whole: {Dw_loss}, D_Mask: {Dm_loss}')
             #Save
             if epoch%5 == 0:
@@ -115,7 +121,9 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     mask, img, map_img = iter(valloader).next()
                     generate = G(torch.cat([mask, map_img], dim=1).to(device)).cpu()
-                save_image(args.mode, img, mask, generate, epoch, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
+                result = save_image(args.mode, img, mask, generate, epoch, args.result_dir, MASK_UNNORMALIZE, minusone2zero)
+                if args.tensorboard is True:
+                    writer.add_image('Result', result, epoch)
                 save_model(args.mode, epoch, args.model_dir, G, D_whole, D_mask)
 
     elif args.mode =='Map':

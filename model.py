@@ -104,7 +104,7 @@ class Editmodule(nn.Module):
 
 class Discriminator(nn.Module):
     # initializers
-    def __init__(self, in_channels=3, d=64):
+    def __init__(self, in_channels=7, d=64):
         super(Discriminator, self).__init__()
         self.model = nn.Sequential(
             nn.Conv2d(in_channels, d, kernel_size=4, stride=2, padding=1),

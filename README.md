@@ -11,20 +11,21 @@ $ python3 main.py -h
 
 ```console
 usage: main.py [-h] -m MODE [--checkpoint DIR] [--data_dir DIR] [--model_dir DIR] [--result_dir DIR]
-               [--gpu GPU] [--ratio Float] [--batchsize Int] [--lr Float] [--epoch Int]
+               [--gpu GPU] [--tensorboard Bool] [--ratio Float] [--batchsize Int] [--lr Float] [--epoch Int]
 
 optional arguments:
-  -h, --help        show this help message and exit
-  -m MODE           Edit : Train edit module, Map : Train map module, Test : Make image
-  --checkpoint DIR  Directory of trained model
-  --data_dir DIR    Dataset or Test image directory. In inference, output image will be saved here
-  --model_dir DIR   Directory to save your model when training
-  --result_dir DIR  Directory to save your Input/True/Generate image when training
+  -h, --help          show this help message and exit
+  -m MODE             Edit : Train edit module, Map : Train map module, Test : Make image
+  --checkpoint DIR    Directory of trained model
+  --data_dir DIR      Dataset or Test image directory. In inference, output image will be saved here
+  --model_dir DIR     Directory to save your model when training
+  --result_dir DIR    Directory to save your Input/True/Generate image when training
   --gpu GPU
-  --ratio Float     Hold-out ratio, default train is 0.1
-  --batchsize Int   Default is 64
-  --lr Float        Default is 0.0002
-  --epoch Int       Default is 500
+  --tensorboard Bool  Use Tensorboard, set True
+  --ratio Float       Hold-out ratio, default train is 0.1
+  --batchsize Int     Default is 64
+  --lr Float          Default is 0.0002
+  --epoch Int         Default is 500
 ```
 
 

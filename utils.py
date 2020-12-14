@@ -56,15 +56,15 @@ def save_image(mode, label_img, mask_img, generate_img, num_iter, save_dir, mask
         mask = mask_unnormal(make_grid(mask_img, nrow = 1))
         label = label_unnormal(make_grid(label_img, nrow = 1))
         generate = label_unnormal(make_grid(generate_img, nrow = 1))
-        result = torch.cat([mask, label, generate], dim=2)
-        result = transforms.ToPILImage()(result)
     else:
         mask = mask_unnormal(make_grid(mask_img, nrow = 1))
         label = make_grid(label_img, nrow = 1)
         generate = make_grid(generate_img, nrow = 1)
-        result = torch.cat([mask, label, generate], dim=2)
-        result = transforms.ToPILImage()(result)
+        
+    result_torch = torch.cat([mask, label, generate], dim=2)
+    result = transforms.ToPILImage()(result_torch)
     result.save(os.path.join(save_dir, f'{num_iter}_{mode}.jpg'))
+    return result_torch
 
 def save_model(mode, num_iter, save_dir, generator, discriminator_whole=None, discriminator_mask=None):
     if mode == 'Edit':
@@ -82,11 +82,13 @@ def save_model(mode, num_iter, save_dir, generator, discriminator_whole=None, di
 Total_loss = G_loss()
 BCE_loss = nn.BCELoss()
 
-def D_train(fake_img, real_img, D, optimizer):
+def D_train(input_img, fake_img, real_img, D, optimizer):
     D.train()
     D.zero_grad()
+    real_img = torch.cat([input_img, real_img], dim=1)
     D_real = D(real_img).squeeze()
     D_real_loss = BCE_loss(D_real, torch.ones(D_real.size()).to(D_real))
+    fake_img = torch.cat([input_img, fake_img], dim=1)
     D_fake = D(fake_img).squeeze()
     D_fake_loss = BCE_loss(D_fake, torch.zeros(D_fake.size()).to(D_fake))
     D_train_loss = (D_real_loss + D_fake_loss)/2
@@ -100,12 +102,12 @@ def G_train(input_img, real_img, map_img, G, optimizer, D_whole = None, D_mask =
     I_edit = G(input_img)
     I_mask = None
     if D_whole is not None:
-        whole_result = D_whole(I_edit).squeeze()
+        whole_result = D_whole(torch.cat([input_img, I_edit], dim=1)).squeeze()
         bce_whole = BCE_loss(whole_result, torch.ones(whole_result.size()).to(whole_result))
         G_train_loss = 100*Total_loss(I_edit, real_img) + bce_whole
         if D_mask is not None:
             I_mask = real_img*(torch.ones_like(map_img) - map_img) + I_edit*map_img
-            mask_result = D_mask(I_mask).squeeze()
+            mask_result = D_mask(torch.cat([input_img, I_mask], dim=1)).squeeze()
             bce_mask = BCE_loss(mask_result, torch.ones(mask_result.size()).to(mask_result))
             G_train_loss = 100*Total_loss(I_edit, real_img) + 0.3*bce_whole + 0.7*bce_mask
     else:
