@@ -17,7 +17,7 @@ help='Directory of trained model')
 parser.add_argument('--data_dir', metavar='DIR', default='../data/celeba', help='Dataset or Test image directory. In inference, output image will be saved here')
 parser.add_argument('--model_dir', metavar='DIR', default='./checkpoint', help='Directory to save your model when training')
 parser.add_argument('--result_dir', metavar='DIR', default='./result', help='Directory to save your Input/True/Generate image when training')
-parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--gpu', default=0)
 parser.add_argument('--tensorboard', metavar='Bool', default=True, help='Use Tensorboard, set True')
 parser.add_argument('--ratio', metavar='Float', type=float, default=0.1, help='Hold-out ratio, default train is 0.1')
 parser.add_argument('--batchsize', metavar='Int', type=int, default=64, help='Default is 64')
@@ -38,8 +38,8 @@ if args.mode == 'Test':
 if args.gpu == None:
     device = torch.device('cpu')
 else:
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
+    torch.cuda.set_device(device)
 print('use: ',device)
 
 if __name__ == '__main__':
